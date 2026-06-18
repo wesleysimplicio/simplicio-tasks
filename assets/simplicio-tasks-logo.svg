@@ -1,0 +1,25 @@
+<svg viewBox="0 0 920 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="simplicio-tasks">
+  <defs>
+    <linearGradient id="neon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#39FF14"/>
+      <stop offset="1" stop-color="#00E08A"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="920" height="300" rx="22" fill="#0A0E0A"/>
+  <rect x="2" y="2" width="916" height="296" rx="20" fill="none" stroke="#1c2a1c" stroke-width="2"/>
+  <!-- infinite-loop mark -->
+  <g transform="translate(96,150)" filter="url(#glow)" fill="none" stroke="url(#neon)" stroke-width="10" stroke-linecap="round">
+    <path d="M-46,0 C-46,-30 -16,-30 0,0 C16,30 46,30 46,0 C46,-30 16,-30 0,0 C-16,30 -46,30 -46,0 Z"/>
+  </g>
+  <g transform="translate(96,150)" fill="#39FF14"><circle cx="0" cy="0" r="5"/></g>
+  <!-- wordmark -->
+  <text x="190" y="132" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="58" font-weight="800" fill="#F2FFF2">simplicio<tspan fill="url(#neon)">-tasks</tspan></text>
+  <text x="192" y="178" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="23" font-weight="500" fill="#8FB89A">Universal Looping AI Orchestrator</text>
+  <text x="192" y="214" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="600" fill="#39FF14">One skill · any LLM · 43 extension points · up to 96% fewer tokens</text>
+  <!-- loop verbs -->
+  <text x="192" y="252" font-family="'Consolas',monospace" font-size="14.5" fill="#5f7a66">observe → understand → decide → act → verify → correct → record → repeat</text>
+</svg>
