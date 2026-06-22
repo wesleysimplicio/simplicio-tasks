@@ -230,6 +230,103 @@ Elke laag heeft een altijd-werkende LLM-fallback en bindt een native commando wa
 
 ---
 
+## 🏛️ Ontwerppijlers (in detail)
+
+Vier mechanismen dragen de orkestratiekracht. Elk is al in de skill bedraad — hier staat precies **waar
+het leeft** en hoe het werkt, in detail getekend.
+
+| Pijler | Focus | Leeft in | Labels |
+|---|---|---|---|
+| **DAG + pipeline** | parallellisme per afhankelijkheid, gefaseerd per item | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md) (Stap 3 pool + 3c pipeline) | `enhancement` `orchestrator` `performance` `runtime` |
+| **Worktree-isolatie** | parallelle edits zonder de boom te corrumperen, merge-gepoort | `worktree` · orchestration.md "Conflict-AWARE isolation" + merge-gate | `enhancement` `orchestrator` `runtime` |
+| **Adversariële verificatie** | een panel van sceptici vóór "delivered" | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Stap 4c · skill `simplicio-review` | `enhancement` `quality` `runtime` |
+| **Lusbudgetplafond** | anti-oneindige-lus, dubbele uitgang | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · skill `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + pipeline — parallellisme per afhankelijkheid, gefaseerd
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+Onafhankelijke items (A, B) waaieren meteen uit; afhankelijke (C, D) wachten op de DAG. Elk item doorloopt
+implement → review → merge op zichzelf, dus A merget terwijl B nog wordt gebouwd — **gefaseerd, nooit een
+globale barrière**. Herhaalde runs slaan voltooide knopen over (resumable).
+
+### 2 · Worktree-isolatie — parallelle edits, merge-gepoort
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+Disjuncte items delen één checkout (goedkoop, geen N×-herlinken); alleen overlappende items betalen voor
+een toegewijde worktree en worden geserialiseerd. De dure volledige suite draait **één keer** op het
+gemergede resultaat — een sterkere eindpoort dan N gedeeltelijke controles.
+
+### 3 · Adversariële verificatie — een panel van sceptici vóór oplevering
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+Voor MEDIUM+-items proberen 2–3 onafhankelijke reviewers elk te WEERLEGGEN (bij twijfel standaard op "niet
+af"). Een meerderheidsweerlegging op enig acceptatiecriterium stuurt het terug. TRIVIAL/SMALL houden een
+enkele zelfreview. (Gedelegeerd aan `simplicio-review`; front-end-diffs vereisen een `web_verify`-vermelding.)
+
+### 4 · Lusbudgetplafond — anti-oneindige-lus, dubbele uitgang
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+De lus heeft **twee onafhankelijke uitgangen**: een *succes*-uitgang (een bewijs-gepoorte `<promise>` die
+echt waar is) en een *veiligheids*-uitgang (het `max_iterations`-plafond, de `$`-budgetnoodstop of een
+STOP-signaal). Hij stopt nooit op een zelfgerapporteerd "done" — en draait nooit eeuwig. Dit is
+`hooks/loop_stop.py` (fail-open: elke hookfout → stoppen toestaan).
+
+---
+
 ## 🔁 De lus
 
 De aandrijving onder de orkestrator is een **geharde Ralph-lus** (`simplicio-loop`):

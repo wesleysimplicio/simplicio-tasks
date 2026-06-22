@@ -224,6 +224,99 @@ flowchart TD
 
 ---
 
+## 🏛️ 设计支柱（详解）
+
+支撑起编排能力的机制有四个。每一个都已接入 skill —— 这里详细描绘它**位于何处**以及如何运作。
+
+| 支柱 | 焦点 | 所在 | 标签 |
+|---|---|---|---|
+| **DAG + 流水线** | 按依赖并行，逐项分阶段 | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md)（Step 3 池 + 3c 流水线） | `enhancement` `orchestrator` `performance` `runtime` |
+| **Worktree 隔离** | 不破坏工作树的并行编辑，受合并门控 | `worktree` · orchestration.md “Conflict-AWARE isolation” + 合并门控 | `enhancement` `orchestrator` `runtime` |
+| **对抗式验证** | 在“交付”之前来一组怀疑者 | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Step 4c · skill `simplicio-review` | `enhancement` `quality` `runtime` |
+| **循环预算上限** | 防止无限循环，双重出口 | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · skill `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + 流水线 —— 按依赖并行，分阶段
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+互相独立的项（A、B）一次性扇出；有依赖的项（C、D）在 DAG 上等待。每一项各自按实现 → 评审 → 合并流动，
+所以在 B 还在构建时 A 就已合并 —— **分阶段，绝非全局屏障**。重跑会跳过已完成的节点（可恢复）。
+
+### 2 · Worktree 隔离 —— 并行编辑，受合并门控
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+互不相交的项共享一个检出（廉价，无需 N× 重新链接）；只有相互重叠的项才付出专用 worktree 的代价并被
+串行化。昂贵的全套测试只在合并后的结果上运行**一次** —— 比 N 次局部检查更强的终局门控。
+
+### 3 · 对抗式验证 —— 交付前的一组怀疑者
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+对 MEDIUM+ 的项，2~3 名独立评审者各自尝试 REFUTE（反驳）（不确定时默认为“未完成”）。任一验收标准上若
+多数反驳，则将其打回。TRIVIAL/SMALL 保留单次自评。（委派给 `simplicio-review`；前端 diff 需要一条
+`web_verify` 条目。）
+
+### 4 · 循环预算上限 —— 防止无限循环，双重出口
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+这个循环有**两个独立的出口**：一个*成功*出口（一个货真价实、经证据门控的 `<promise>`）和一个*安全*出口
+（`max_iterations` 上限、`$` 预算急停开关，或一个 STOP 信号）。它绝不因自报的“完成”而退出 —— 也绝不
+永远运行下去。这就是 `hooks/loop_stop.py`（fail-open：任何钩子出错 → 允许停止）。
+
+---
+
 ## 🔁 循环
 
 编排器底层的驱动力是一个**强化版 Ralph 循环**（`simplicio-loop`）：

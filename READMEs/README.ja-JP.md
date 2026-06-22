@@ -230,6 +230,103 @@ flowchart TD
 
 ---
 
+## 🏛️ 設計の柱（詳細）
+
+オーケストレーションの力を担う仕組みは4つあります。それぞれすでにスキルに組み込まれています——ここでは
+それが**どこにあるか**と、どう動くかを、詳細に描きます。
+
+| 柱 | 焦点 | 所在 | ラベル |
+|---|---|---|---|
+| **DAG＋パイプライン** | 依存関係による並列性、項目ごとに段階化 | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md)（Step 3 プール＋3c パイプライン） | `enhancement` `orchestrator` `performance` `runtime` |
+| **Worktree分離** | ツリーを壊さない並列編集、マージゲート付き | `worktree` · orchestration.md「Conflict-AWARE isolation」＋マージゲート | `enhancement` `orchestrator` `runtime` |
+| **敵対的検証** | 「提供」の前に懐疑者のパネル | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Step 4c · スキル `simplicio-review` | `enhancement` `quality` `runtime` |
+| **ループ予算上限** | 無限ループ防止、二重の出口 | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · スキル `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG＋パイプライン — 依存関係による並列性、段階化
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+独立した項目（A、B）は一度にファンアウトし、依存する項目（C、D）はDAG上で待ちます。各項目はそれぞれ
+実装 → レビュー → マージと流れるので、Bがまだ構築中でもAはマージされます——**段階化され、グローバルな
+バリアは決してありません**。再実行は完了済みのノードをスキップします（再開可能）。
+
+### 2 · Worktree分離 — 並列編集、マージゲート付き
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+互いに素な項目は1つのチェックアウトを共有します（安価、N×の再リンクなし）。重なり合う項目だけが専用の
+worktreeのコストを払い、直列化されます。高コストなフルスイートは、マージされた結果に対して**一度だけ**
+実行されます——N回の部分的チェックよりも強力なエンドゲートです。
+
+### 3 · 敵対的検証 — 提供の前の懐疑者のパネル
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+MEDIUM+の項目では、2〜3人の独立したレビュアーがそれぞれREFUTE（反証）を試みます（不確かなら「未完了」を
+既定とする）。いずれかの受け入れ基準で過半数が反証すれば、差し戻されます。TRIVIAL/SMALLは単一の自己レビューを
+保ちます。（`simplicio-review` に委譲されます。フロントエンドの差分には `web_verify` のエントリが必要です。）
+
+### 4 · ループ予算上限 — 無限ループ防止、二重の出口
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+ループには**2つの独立した出口**があります。*成功*の出口（本当に真である、エビデンスゲートを通った
+`<promise>`）と、*安全*の出口（`max_iterations` 上限、`$` 予算キルスイッチ、またはSTOPシグナル）です。
+自己申告の「完了」では決して終了せず——永遠に走り続けることもありません。これは `hooks/loop_stop.py` です
+（フェイルオープン：フックのエラーはすべて停止を許可する）。
+
+---
+
 ## 🔁 ループ
 
 オーケストレーターの下にある駆動力は、**強化されたRalphループ**（`simplicio-loop`）です。

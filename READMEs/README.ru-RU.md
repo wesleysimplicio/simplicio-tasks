@@ -231,6 +231,106 @@ flowchart TD
 
 ---
 
+## 🏛️ Принципы дизайна (подробно)
+
+Четыре механизма несут на себе мощь оркестрации. Каждый уже вшит в навык — здесь точно показано,
+**где он живёт** и как работает, расписано в деталях.
+
+| Принцип | Фокус | Где живёт | Метки |
+|---|---|---|---|
+| **DAG + конвейер** | параллелизм по зависимостям, поэтапно на каждый пункт | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md) (Шаг 3 пул + 3c конвейер) | `enhancement` `orchestrator` `performance` `runtime` |
+| **Изоляция worktree** | параллельные правки без порчи дерева, через merge-ворота | `worktree` · orchestration.md «Conflict-AWARE isolation» + merge-ворота | `enhancement` `orchestrator` `runtime` |
+| **Состязательная проверка** | панель скептиков перед «поставлено» | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Шаг 4c · навык `simplicio-review` | `enhancement` `quality` `runtime` |
+| **Лимит бюджета цикла** | анти-бесконечный-цикл, двойной выход | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · навык `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + конвейер — параллелизм по зависимостям, поэтапно
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+Независимые (A, B) разворачиваются веером сразу; зависимые (C, D) ждут по DAG. Каждый пункт течёт
+implement → review → merge сам по себе, так что A сливается, пока B ещё собирается — **поэтапно,
+никогда не глобальный барьер**. Повторные прогоны пропускают готовые узлы (с возобновлением).
+
+### 2 · Изоляция worktree — параллельные правки, через merge-ворота
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+Непересекающиеся пункты делят один checkout (дёшево, без N× повторной привязки); только
+пересекающиеся пункты платят за выделенный worktree и сериализуются. Дорогой полный набор тестов
+прогоняется **один раз** на слитом результате — более сильные конечные ворота, чем N частичных
+проверок.
+
+### 3 · Состязательная проверка — панель скептиков перед поставкой
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+Для пунктов MEDIUM+ 2–3 независимых ревьюера каждый пытаются ОПРОВЕРГНУТЬ (по умолчанию «не
+готово», если не уверены). Опровержение большинством по любому критерию приёмки отправляет пункт
+назад. TRIVIAL/SMALL сохраняют одиночное само-ревью. (Делегируется в `simplicio-review`;
+фронтенд-диффы требуют записи `web_verify`.)
+
+### 4 · Лимит бюджета цикла — анти-бесконечный-цикл, двойной выход
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+У цикла **два независимых выхода**: выход по *успеху* (подтверждённый доказательствами
+`<promise>`, который действительно истинен) и выход по *безопасности* (лимит `max_iterations`,
+`$`-аварийный выключатель бюджета или сигнал STOP). Он никогда не выходит по самопровозглашённому
+«готово» — и никогда не работает вечно. Это `hooks/loop_stop.py` (отказоустойчиво: любая ошибка
+хука → разрешить остановку).
+
+---
+
 ## 🔁 Цикл
 
 Привод под оркестратором — это **закалённый цикл Ralph** (`simplicio-loop`):
