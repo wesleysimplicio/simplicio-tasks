@@ -231,6 +231,103 @@ flowchart TD
 
 ---
 
+## 🏛️ 설계 기둥(상세)
+
+오케스트레이션의 힘을 떠받치는 메커니즘은 네 가지입니다. 각각은 이미 스킬에 배선되어 있습니다 — 여기서는
+그것이 **어디에 있는지**와 어떻게 동작하는지를 상세히 그립니다.
+
+| 기둥 | 초점 | 위치 | 라벨 |
+|---|---|---|---|
+| **DAG + 파이프라인** | 의존성에 따른 병렬성, 항목별 단계화 | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md)(Step 3 풀 + 3c 파이프라인) | `enhancement` `orchestrator` `performance` `runtime` |
+| **Worktree 격리** | 트리를 망가뜨리지 않는 병렬 편집, 병합 게이트 적용 | `worktree` · orchestration.md "Conflict-AWARE isolation" + 병합 게이트 | `enhancement` `orchestrator` `runtime` |
+| **적대적 검증** | "제공" 전에 회의론자 패널 | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Step 4c · 스킬 `simplicio-review` | `enhancement` `quality` `runtime` |
+| **루프 예산 상한** | 무한 루프 방지, 이중 출구 | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · 스킬 `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + 파이프라인 — 의존성에 따른 병렬성, 단계화
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+독립적인 항목(A, B)은 한꺼번에 팬아웃하고, 의존하는 항목(C, D)은 DAG에서 대기합니다. 각 항목은 스스로
+구현 → 리뷰 → 병합으로 흐르므로, B가 아직 빌드 중일 때 A가 병합됩니다 — **단계화되며, 결코 전역
+배리어가 아닙니다**. 재실행은 완료된 노드를 건너뜁니다(재개 가능).
+
+### 2 · Worktree 격리 — 병렬 편집, 병합 게이트 적용
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+서로 겹치지 않는 항목은 하나의 체크아웃을 공유합니다(저렴하며 N× 재링크 없음). 겹치는 항목만 전용
+worktree 비용을 치르고 직렬화됩니다. 비싼 전체 스위트는 병합된 결과에 대해 **한 번** 실행됩니다 — N개의
+부분 검사보다 강력한 엔드 게이트입니다.
+
+### 3 · 적대적 검증 — 제공 전의 회의론자 패널
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+MEDIUM+ 항목에서는 2~3명의 독립적인 리뷰어가 각각 REFUTE(반박)를 시도합니다(불확실하면 "미완료"를
+기본값으로 함). 어느 한 수용 기준에서 과반수가 반박하면 되돌려 보냅니다. TRIVIAL/SMALL은 단일 자가
+리뷰를 유지합니다. (`simplicio-review`에 위임됩니다. 프런트엔드 차분에는 `web_verify` 항목이 필요합니다.)
+
+### 4 · 루프 예산 상한 — 무한 루프 방지, 이중 출구
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+루프에는 **두 개의 독립적인 출구**가 있습니다. *성공* 출구(진짜로 참인, 증거 게이트를 통과한
+`<promise>`)와 *안전* 출구(`max_iterations` 상한, `$` 예산 킬 스위치, 또는 STOP 신호)입니다. 자가 보고된
+"완료"로는 결코 종료하지 않으며 — 영원히 돌지도 않습니다. 이것이 `hooks/loop_stop.py`입니다(페일 오픈:
+훅 오류는 무엇이든 멈춤을 허용).
+
+---
+
 ## 🔁 루프
 
 오케스트레이터 아래에 있는 구동력은 **강화된 Ralph 루프**(`simplicio-loop`)입니다.

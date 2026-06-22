@@ -229,6 +229,105 @@ um — o mesmo protocolo em todos os 11 runtimes, só a velocidade muda.
 
 ---
 
+## 🏛️ Pilares de design (em detalhe)
+
+Quatro mecanismos sustentam o poder de orquestração. Cada um já está integrado à skill — aqui está
+exatamente **onde ele vive** e como funciona, desenhado em detalhe.
+
+| Pilar | Foco | Vive em | Labels |
+|---|---|---|---|
+| **DAG + pipeline** | paralelismo por dependência, estagiado por item | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md) (Passo 3 pool + 3c pipeline) | `enhancement` `orchestrator` `performance` `runtime` |
+| **Isolamento por worktree** | edições paralelas sem corromper a árvore, com merge controlado por portão | `worktree` · orchestration.md "Conflict-AWARE isolation" + merge gate | `enhancement` `orchestrator` `runtime` |
+| **Verificação adversarial** | um painel de céticos antes de "entregue" | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Passo 4c · skill `simplicio-review` | `enhancement` `quality` `runtime` |
+| **Teto de orçamento do loop** | anti-loop-infinito, saída dupla | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · skill `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + pipeline — paralelismo por dependência, estagiado
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+Os independentes (A, B) saem em paralelo de imediato; os dependentes (C, D) aguardam no DAG. Cada item
+flui implementar → revisar → merge por conta própria, então A faz merge enquanto B ainda está sendo
+construído — **estagiado, nunca uma barreira global**. As re-execuções pulam os nós já concluídos
+(resumível).
+
+### 2 · Isolamento por worktree — edições paralelas, com merge controlado por portão
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+Itens disjuntos compartilham um único checkout (barato, sem re-link N×); apenas itens sobrepostos pagam
+por um worktree dedicado e são serializados. A custosa suíte completa roda **uma única vez** sobre o
+resultado mergeado — um portão de saída mais forte do que N verificações parciais.
+
+### 3 · Verificação adversarial — um painel de céticos antes da entrega
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+Para itens MEDIUM+, 2–3 revisores independentes tentam, cada um, REFUTAR (assumem "não concluído" em
+caso de dúvida). A refutação pela maioria de qualquer critério de aceitação o devolve para correção.
+TRIVIAL/SMALL mantêm uma única autorrevisão. (Delegado ao `simplicio-review`; diffs de front-end exigem
+uma entrada `web_verify`.)
+
+### 4 · Teto de orçamento do loop — anti-loop-infinito, saída dupla
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+O loop tem **duas saídas independentes**: uma saída de *sucesso* (um `<promise>` vinculado a evidências
+que é genuinamente verdadeiro) e uma saída de *segurança* (teto de `max_iterations`, o kill-switch de
+orçamento `$` ou um sinal STOP). Ele nunca sai com um "done" autorreportado — e nunca roda para sempre.
+Isto é o `hooks/loop_stop.py` (fail-open: qualquer erro de hook → permite parar).
+
+---
+
 ## 🔁 O loop
 
 O drive sob o orquestrador é um **loop Ralph endurecido** (`simplicio-loop`):

@@ -229,6 +229,103 @@ Every layer has an always-works LLM fallback and binds a native command when the
 
 ---
 
+## 🏛️ Design pillars (in detail)
+
+Four mechanisms carry the orchestration power. Each is already wired into the skill — here is
+exactly **where it lives** and how it works, drawn in detail.
+
+| Pillar | Focus | Lives in | Labels |
+|---|---|---|---|
+| **DAG + pipeline** | parallelism by dependency, staged per-item | `dependency_graph` · [`references/orchestration.md`](.claude/skills/simplicio-tasks/references/orchestration.md) (Step 3 pool + 3c pipeline) | `enhancement` `orchestrator` `performance` `runtime` |
+| **Worktree isolation** | parallel edits without corrupting the tree, merge-gated | `worktree` · orchestration.md "Conflict-AWARE isolation" + merge gate | `enhancement` `orchestrator` `runtime` |
+| **Adversarial verify** | a panel of skeptics before "delivered" | [`quality-safety-delivery.md`](.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Step 4c · skill `simplicio-review` | `enhancement` `quality` `runtime` |
+| **Loop budget cap** | anti-infinite-loop, dual exit | [`standing-loop-247.md`](.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · skill `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + pipeline — parallelism by dependency, staged
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+Independents (A, B) fan out at once; dependents (C, D) wait on the DAG. Each item flows
+implement → review → merge on its own, so A merges while B is still building — **staged, never a
+global barrier**. Re-runs skip done nodes (resumable).
+
+### 2 · Worktree isolation — parallel edits, merge-gated
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+Disjoint items share one checkout (cheap, no N× re-link); only overlapping items pay for a
+dedicated worktree and are serialized. The expensive full suite runs **once** on the merged
+result — a stronger end-gate than N partial checks.
+
+### 3 · Adversarial verify — a panel of skeptics before delivery
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+For MEDIUM+ items, 2–3 independent reviewers each try to REFUTE (default to "not done" if
+unsure). Majority-refute on any acceptance criterion sends it back. TRIVIAL/SMALL keep a single
+self-review. (Delegated to `simplicio-review`; front-end diffs require a `web_verify` entry.)
+
+### 4 · Loop budget cap — anti-infinite-loop, dual exit
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+The loop has **two independent exits**: a *success* exit (an evidence-gated `<promise>` that is
+genuinely true) and a *safety* exit (`max_iterations` cap, the `$` budget kill-switch, or a STOP
+signal). It never exits on a self-reported "done" — and never runs forever. This is
+`hooks/loop_stop.py` (fail-open: any hook error → allow stop).
+
+---
+
 ## 🔁 The loop
 
 The drive underneath the orchestrator is a **hardened Ralph loop** (`simplicio-loop`):

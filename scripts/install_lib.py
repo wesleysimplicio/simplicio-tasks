@@ -72,13 +72,19 @@ def copy_skills(target):
     log("skills -> %s" % dst_root)
 
 
-def copy_hooks(target):
-    if os.path.abspath(target) == os.path.abspath(SOURCE):
-        return  # already here
+def hooks_dir(target, is_global):
+    # global → keep hooks tidy under ~/.claude/hooks; project → ./hooks at the repo root
+    return os.path.join(target, ".claude", "hooks") if is_global else os.path.join(target, "hooks")
+
+
+def copy_hooks(target, is_global):
     src = os.path.join(SOURCE, "hooks")
+    dst = hooks_dir(target, is_global)
+    if os.path.abspath(dst) == os.path.abspath(src):
+        return  # already here (project install inside this repo)
     if os.path.isdir(src):
-        shutil.copytree(src, os.path.join(target, "hooks"), dirs_exist_ok=True)
-        log("hooks -> %s" % os.path.join(target, "hooks"))
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+        log("hooks -> %s" % dst)
 
 
 def ensure_entry(target, rel):
@@ -102,7 +108,7 @@ def ensure_entry(target, rel):
     log("entry -> %s" % rel)
 
 
-def merge_claude_hooks(target):
+def merge_claude_hooks(target, is_global):
     path = os.path.join(target, ".claude", "settings.json")
     data = {}
     if os.path.exists(path):
@@ -121,19 +127,31 @@ def merge_claude_hooks(target):
                     return True
         return False
 
+    # Global install: cwd varies per session, so reference hooks by ABSOLUTE path
+    # (forward slashes work on Windows too). Project install: relative ./hooks (portable).
+    def cmd(name):
+        if is_global:
+            return 'python3 "%s"' % os.path.abspath(
+                os.path.join(hooks_dir(target, True), name)).replace("\\", "/")
+        return "python3 ./hooks/%s" % name
+
     if not has("Stop", "loop_stop.py"):
         hooks.setdefault("Stop", []).append({"hooks": [
-            {"type": "command", "command": "python3 ./hooks/loop_stop.py"},
-            {"type": "command", "command": "python3 ./hooks/learn_stop.py"},
+            {"type": "command", "command": cmd("loop_stop.py")},
+            {"type": "command", "command": cmd("learn_stop.py")},
         ]})
-    if not has("PreToolUse", "orient_rewrite.py"):
+    wired = "Stop"
+    # orient_rewrite rewrites Bash calls; only wire it project-locally (opt-in), never
+    # globally — a global PreToolUse would touch every session on the machine.
+    if not is_global and not has("PreToolUse", "orient_rewrite.py"):
         hooks.setdefault("PreToolUse", []).append({
             "matcher": "Bash",
-            "hooks": [{"type": "command", "command": "python3 ./hooks/orient_rewrite.py"}],
+            "hooks": [{"type": "command", "command": cmd("orient_rewrite.py")}],
         })
+        wired = "Stop + PreToolUse"
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
-    log("hooks wired -> .claude/settings.json (Stop + PreToolUse)")
+    log("hooks wired -> %s settings.json (%s)" % ("global" if is_global else ".claude", wired))
 
 
 def print_claude_snippet():
@@ -171,10 +189,10 @@ def main():
 
     print("simplicio-tasks installer - runtime=%s - target=%s" % (runtime, target))
     copy_skills(target)
-    copy_hooks(target)
+    copy_hooks(target, is_global)
     ensure_entry(target, cfg["entry"])
     if cfg["hooks"] == "claude":
-        merge_claude_hooks(target)
+        merge_claude_hooks(target, is_global)
     elif cfg["hooks"] == "cursor":
         log("loop hooks active via hooks/hooks.json (Cursor format)")
     elif cfg["hooks"] == "native":

@@ -231,6 +231,106 @@ bereitstellt — dasselbe Protokoll auf allen 11 Laufzeiten, nur die Geschwindig
 
 ---
 
+## 🏛️ Designsäulen (im Detail)
+
+Vier Mechanismen tragen die Orchestrierungskraft. Jeder ist bereits in die Skill verdrahtet — hier steht
+genau, **wo er lebt** und wie er funktioniert, im Detail gezeichnet.
+
+| Säule | Fokus | Lebt in | Labels |
+|---|---|---|---|
+| **DAG + Pipeline** | Parallelität nach Abhängigkeit, gestaffelt pro Element | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md) (Schritt 3 Pool + 3c Pipeline) | `enhancement` `orchestrator` `performance` `runtime` |
+| **Worktree-Isolation** | parallele Edits ohne den Baum zu beschädigen, merge-gegatet | `worktree` · orchestration.md „Conflict-AWARE isolation" + Merge-Gate | `enhancement` `orchestrator` `runtime` |
+| **Adversariale Verifikation** | ein Gremium von Skeptikern vor „delivered" | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Schritt 4c · Skill `simplicio-review` | `enhancement` `quality` `runtime` |
+| **Loop-Budget-Obergrenze** | Anti-Endlosschleife, dualer Ausgang | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · Skill `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + Pipeline — Parallelität nach Abhängigkeit, gestaffelt
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+Unabhängige Elemente (A, B) fächern sofort auf; abhängige (C, D) warten auf den DAG. Jedes Element
+durchläuft eigenständig implement → review → merge, sodass A mergt, während B noch gebaut wird —
+**gestaffelt, niemals eine globale Barriere**. Wiederholungsläufe überspringen erledigte Knoten
+(resumable).
+
+### 2 · Worktree-Isolation — parallele Edits, merge-gegatet
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+Disjunkte Elemente teilen sich einen Checkout (günstig, kein N×-Neuverlinken); nur überlappende Elemente
+zahlen für einen dedizierten Worktree und werden serialisiert. Die teure vollständige Suite läuft
+**einmal** auf dem gemergten Ergebnis — ein stärkeres End-Gate als N partielle Prüfungen.
+
+### 3 · Adversariale Verifikation — ein Gremium von Skeptikern vor der Auslieferung
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+Für MEDIUM+-Elemente versuchen 2–3 unabhängige Reviewer jeweils zu WIDERLEGEN (im Zweifel
+Standardannahme „nicht erledigt"). Eine Mehrheits-Widerlegung bei irgendeinem Akzeptanzkriterium schickt
+es zurück. TRIVIAL/SMALL behalten eine einzelne Selbstüberprüfung. (Delegiert an `simplicio-review`;
+Front-end-Diffs erfordern einen `web_verify`-Eintrag.)
+
+### 4 · Loop-Budget-Obergrenze — Anti-Endlosschleife, dualer Ausgang
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+Die Schleife hat **zwei unabhängige Ausgänge**: einen *Erfolgs*-Ausgang (ein nachweis-gegatetes
+`<promise>`, das wirklich wahr ist) und einen *Sicherheits*-Ausgang (`max_iterations`-Obergrenze, der
+`$`-Budget-Kill-Switch oder ein STOP-Signal). Sie beendet sich niemals bei einem selbstberichteten
+„done" — und läuft niemals ewig. Das ist `hooks/loop_stop.py` (fail-open: jeder Hook-Fehler → Stopp
+erlauben).
+
+---
+
 ## 🔁 Die Schleife
 
 Der Antrieb unter dem Orchestrator ist eine **gehärtete Ralph-Schleife** (`simplicio-loop`):

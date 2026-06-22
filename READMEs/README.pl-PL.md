@@ -234,6 +234,104 @@ szybkość.
 
 ---
 
+## 🏛️ Filary projektu (szczegółowo)
+
+Cztery mechanizmy dźwigają moc orkiestracji. Każdy jest już wpięty w skill — oto dokładnie,
+**gdzie żyje** i jak działa, rozrysowane w szczegółach.
+
+| Filar | Skupienie | Żyje w | Etykiety |
+|---|---|---|---|
+| **DAG + potok** | równoległość wg zależności, etapowo per element | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md) (Krok 3 pula + 3c potok) | `enhancement` `orchestrator` `performance` `runtime` |
+| **Izolacja worktree** | równoległe edycje bez psucia drzewa, bramkowane scaleniem | `worktree` · orchestration.md „Conflict-AWARE isolation" + bramka scalenia | `enhancement` `orchestrator` `runtime` |
+| **Weryfikacja adwersarialna** | panel sceptyków przed „dostarczone" | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Krok 4c · skill `simplicio-review` | `enhancement` `quality` `runtime` |
+| **Pułap budżetu pętli** | anty-nieskończona-pętla, podwójne wyjście | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · skill `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + potok — równoległość wg zależności, etapowo
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+Niezależne (A, B) rozwijają się wachlarzem od razu; zależne (C, D) czekają na DAG. Każdy element
+płynie implement → review → merge na własną rękę, więc A scala się, gdy B wciąż się buduje —
+**etapowo, nigdy nie globalna bariera**. Ponowne przebiegi pomijają gotowe węzły (wznawialne).
+
+### 2 · Izolacja worktree — równoległe edycje, bramkowane scaleniem
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+Rozłączne elementy dzielą jeden checkout (tanio, bez N× ponownego linkowania); tylko nakładające
+się elementy płacą za dedykowany worktree i są serializowane. Kosztowny pełny zestaw testów
+przebiega **raz** na scalonym rezultacie — silniejsza bramka końcowa niż N częściowych sprawdzeń.
+
+### 3 · Weryfikacja adwersarialna — panel sceptyków przed dostawą
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+Dla elementów MEDIUM+ 2–3 niezależnych recenzentów każdy próbuje OBALIĆ (domyślnie „niegotowe",
+gdy brak pewności). Obalenie większością dowolnego kryterium akceptacji odsyła element wstecz.
+TRIVIAL/SMALL zachowują pojedynczy autoprzegląd. (Delegowane do `simplicio-review`; diffy
+front-endu wymagają wpisu `web_verify`.)
+
+### 4 · Pułap budżetu pętli — anty-nieskończona-pętla, podwójne wyjście
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+Pętla ma **dwa niezależne wyjścia**: wyjście *sukcesu* (bramkowany dowodami `<promise>`, który
+jest naprawdę prawdziwy) oraz wyjście *bezpieczeństwa* (pułap `max_iterations`, wyłącznik awaryjny
+budżetu `$` lub sygnał STOP). Nigdy nie wychodzi przy samozgłoszonym „gotowe" — i nigdy nie działa
+w nieskończoność. To `hooks/loop_stop.py` (fail-open: każdy błąd hooka → pozwól się zatrzymać).
+
+---
+
 ## 🔁 Pętla
 
 Napędem pod orkiestratorem jest **utwardzona pętla Ralph** (`simplicio-loop`):

@@ -257,6 +257,119 @@ flowchart TD
 
 <div dir="rtl">
 
+## 🏛️ ركائز التصميم (بالتفصيل)
+
+تحمل أربع آليات قوة التنسيق. وكل واحدة موصولة بالفعل داخل المهارة — وفي ما يلي بيان دقيق لـ**أين
+تقيم** وكيف تعمل، مرسومة بالتفصيل.
+
+| الركيزة | المحور | أين تقيم | الوسوم |
+|---|---|---|---|
+| **DAG + خط الأنابيب** | التوازي بحسب التبعية، مُدرَّج لكل عنصر | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md) (Step 3 pool + 3c pipeline) | `enhancement` `orchestrator` `performance` `runtime` |
+| **عزل Worktree** | تعديلات متوازية دون إفساد الشجرة، مُحكَمة بالدمج | `worktree` · orchestration.md "Conflict-AWARE isolation" + merge gate | `enhancement` `orchestrator` `runtime` |
+| **التحقق التخاصمي** | لجنة من المتشكّكين قبل "التسليم" | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Step 4c · skill `simplicio-review` | `enhancement` `quality` `runtime` |
+| **سقف ميزانية الحلقة** | مانع للحلقة اللانهائية، بمخرجين | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · skill `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + خط الأنابيب — التوازي بحسب التبعية، مُدرَّج
+
+</div>
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+<div dir="rtl">
+
+العناصر المستقلة (A وB) تتوزّع دفعةً واحدة؛ والعناصر التابعة (C وD) تنتظر على الـ DAG. ويسير كل عنصر
+عبر implement → review → merge بمفرده، فيُدمَج A بينما لا يزال B قيد البناء — **مُدرَّج، بلا أي حاجز
+شامل**. وتتخطّى عمليات إعادة التشغيل العُقَد المُنجَزة (resumable).
+
+### 2 · عزل Worktree — تعديلات متوازية، مُحكَمة بالدمج
+
+</div>
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+<div dir="rtl">
+
+العناصر المنفصلة تتشارك checkout واحداً (رخيص، بلا إعادة ربط N×)؛ ووحدها العناصر المتداخلة تدفع ثمن
+worktree مخصّص وتُسلسَل. أما المجموعة الكاملة المكلفة فتُشغَّل **مرة واحدة** على النتيجة المدموجة —
+بوابة نهائية أقوى من N فحصاً جزئياً.
+
+### 3 · التحقق التخاصمي — لجنة من المتشكّكين قبل التسليم
+
+</div>
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+<div dir="rtl">
+
+للعناصر من فئة MEDIUM+، يحاول 2–3 مراجعين مستقلين كلٌّ منهم أن يُفنّد (REFUTE) (والافتراض عند الشكّ هو
+"not done"). وتفنيد الأغلبية لأي معيار قبول يعيده إلى الإصلاح. أما TRIVIAL/SMALL فتُبقي مراجعة ذاتية
+واحدة. (يُفوَّض إلى `simplicio-review`؛ وتتطلّب فروق الواجهة الأمامية مدخل `web_verify`.)
+
+### 4 · سقف ميزانية الحلقة — مانع للحلقة اللانهائية، بمخرجين
+
+</div>
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+<div dir="rtl">
+
+للحلقة **مخرجان مستقلان**: مخرج *نجاح* (`<promise>` مرتبط بالأدلة يكون صحيحاً فعلاً) ومخرج *أمان*
+(سقف `max_iterations`، أو مفتاح إيقاف الميزانية `$`، أو إشارة STOP). وهي لا تخرج أبداً عند "done"
+مُبلَّغ عنه ذاتياً — ولا تعمل إلى الأبد. وهذا هو `hooks/loop_stop.py` (fail-open: أي خطأ في الخطّاف ←
+السماح بالتوقّف).
+
+---
+
 ## 🔁 الحلقة
 
 المحرّك الكامن تحت المنسّق هو **حلقة Ralph مُتينة** (`simplicio-loop`):
@@ -357,7 +470,7 @@ python3 hooks/orient_clamp.py --json -- git diff  # machine summary
 </div>
 
 <details>
-<summary><strong>Orchestration & scale</strong></summary>
+<summary><strong>التنسيق والتوسّع</strong></summary>
 
 `orient` · `normalize` · `intake` · `source_adapter` · `autoscale` · `plan`/`decide` ·
 `execute` · `issue_factory` · `claim` · `worktree` · `dependency_graph` · `durable_workflow` ·
@@ -365,7 +478,7 @@ python3 hooks/orient_clamp.py --json -- git diff  # machine summary
 </details>
 
 <details>
-<summary><strong>Editing, quality & evidence</strong></summary>
+<summary><strong>التحرير والجودة والأدلة</strong></summary>
 
 `deterministic_edit` · `diagnostics` · `toolchain_detect` · `validate`/`smoke` ·
 `delivery_gate` · `endpoint_compare` · `web_verify` · `pr`/`evidence` · `retry` ·
@@ -373,7 +486,7 @@ python3 hooks/orient_clamp.py --json -- git diff  # machine summary
 </details>
 
 <details>
-<summary><strong>Tokens, context & safety</strong></summary>
+<summary><strong>الرموز والسياق والأمان</strong></summary>
 
 `recall` · `compress` · `prompt_budget` · `shell_exec` · `transform_guard` · `action_gate` ·
 `security` · `human_gate` · `notify` · `checkpoint_restore` · `watcher` · `savings_ledger` ·

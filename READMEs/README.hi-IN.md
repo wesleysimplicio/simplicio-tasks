@@ -230,6 +230,104 @@ flowchart TD
 
 ---
 
+## 🏛️ डिज़ाइन स्तंभ (विस्तार में)
+
+चार तंत्र ऑर्केस्ट्रेशन की शक्ति को वहन करते हैं। प्रत्येक पहले से ही स्किल में वायर किया हुआ है — यहाँ
+ठीक-ठीक बताया गया है कि **यह कहाँ रहता है** और यह कैसे काम करता है, विस्तार से चित्रित।
+
+| स्तंभ | केंद्र | कहाँ रहता है | लेबल |
+|---|---|---|---|
+| **DAG + पाइपलाइन** | निर्भरता द्वारा समानांतरता, प्रति-आइटम चरणबद्ध | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md) (Step 3 pool + 3c pipeline) | `enhancement` `orchestrator` `performance` `runtime` |
+| **Worktree पृथक्करण** | ट्री को बिगाड़े बिना समानांतर संपादन, मर्ज-गेटेड | `worktree` · orchestration.md "Conflict-AWARE isolation" + merge gate | `enhancement` `orchestrator` `runtime` |
+| **प्रतिकूल सत्यापन** | "वितरित" से पहले संशयवादियों का एक पैनल | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Step 4c · skill `simplicio-review` | `enhancement` `quality` `runtime` |
+| **लूप बजट सीमा** | अनंत-लूप-रोधी, द्वि-निकास | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · skill `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + पाइपलाइन — निर्भरता द्वारा समानांतरता, चरणबद्ध
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+स्वतंत्र आइटम (A, B) एक साथ फ़ैन-आउट होते हैं; आश्रित आइटम (C, D) DAG पर प्रतीक्षा करते हैं। प्रत्येक
+आइटम स्वयं implement → review → merge से बहता है, इसलिए A मर्ज हो जाता है जबकि B अभी भी बन रहा होता है —
+**चरणबद्ध, कभी कोई वैश्विक अवरोध नहीं**। पुनः-रन पूर्ण नोड्स को छोड़ देते हैं (resumable)।
+
+### 2 · Worktree पृथक्करण — समानांतर संपादन, मर्ज-गेटेड
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+असंयुक्त आइटम एक ही checkout साझा करते हैं (सस्ता, कोई N× पुनः-लिंक नहीं); केवल अतिव्यापी आइटम एक
+समर्पित worktree की कीमत चुकाते हैं और क्रमबद्ध किए जाते हैं। महँगी पूर्ण सूट मर्ज किए गए परिणाम पर
+**एक बार** चलती है — N आंशिक जाँचों की तुलना में एक मज़बूत अंत-गेट।
+
+### 3 · प्रतिकूल सत्यापन — वितरण से पहले संशयवादियों का एक पैनल
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+MEDIUM+ आइटम के लिए, 2–3 स्वतंत्र समीक्षक प्रत्येक REFUTE करने का प्रयास करते हैं (अनिश्चित होने पर
+डिफ़ॉल्ट रूप से "not done")। किसी भी स्वीकृति-मानदंड पर बहुमत-खंडन उसे वापस भेज देता है। TRIVIAL/SMALL
+एक एकल स्व-समीक्षा रखते हैं। (`simplicio-review` को सौंपा गया; फ़्रंट-एंड diffs के लिए एक `web_verify`
+प्रविष्टि आवश्यक है।)
+
+### 4 · लूप बजट सीमा — अनंत-लूप-रोधी, द्वि-निकास
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+लूप के **दो स्वतंत्र निकास** हैं: एक *सफलता* निकास (एक साक्ष्य-गेटेड `<promise>` जो वास्तव में सत्य हो)
+और एक *सुरक्षा* निकास (`max_iterations` सीमा, `$` बजट किल-स्विच, या एक STOP संकेत)। यह किसी स्व-रिपोर्ट
+किए गए "done" पर कभी बाहर नहीं निकलता — और कभी हमेशा के लिए नहीं चलता। यह `hooks/loop_stop.py` है
+(fail-open: कोई भी हुक त्रुटि → रुकने की अनुमति)।
+
+---
+
 ## 🔁 लूप
 
 ऑर्केस्ट्रेटर के नीचे का ड्राइव एक **कठोरीकृत Ralph लूप** (`simplicio-loop`) है:
@@ -322,10 +420,10 @@ simplicio-tasks को GitHub पर सर्वश्रेष्ठ लूप
 
 कार्य का प्रत्येक चरण एक **नामित एक्सटेंशन पॉइंट** पर होता है। यदि कोई होस्ट रनटाइम एक मूल क्षमता
 प्रदान करता है तो वह **बाइंड** हो जाता है (नियतात्मक, लगभग शून्य टोकन); अन्यथा LLM मानक उपकरणों के
-साथ **फ़ॉलबैक** करता है। skill अमूर्तन पर निर्भर करती है, किसी रनटाइम पर कभी नहीं।
+साथ **फ़ॉलबैक** करता है। स्किल अमूर्तन पर निर्भर करती है, किसी रनटाइम पर कभी नहीं।
 
 <details>
-<summary><strong>Orchestration & scale</strong></summary>
+<summary><strong>ऑर्केस्ट्रेशन और स्केल</strong></summary>
 
 `orient` · `normalize` · `intake` · `source_adapter` · `autoscale` · `plan`/`decide` ·
 `execute` · `issue_factory` · `claim` · `worktree` · `dependency_graph` · `durable_workflow` ·
@@ -333,7 +431,7 @@ simplicio-tasks को GitHub पर सर्वश्रेष्ठ लूप
 </details>
 
 <details>
-<summary><strong>Editing, quality & evidence</strong></summary>
+<summary><strong>संपादन, गुणवत्ता और साक्ष्य</strong></summary>
 
 `deterministic_edit` · `diagnostics` · `toolchain_detect` · `validate`/`smoke` ·
 `delivery_gate` · `endpoint_compare` · `web_verify` · `pr`/`evidence` · `retry` ·
@@ -341,7 +439,7 @@ simplicio-tasks को GitHub पर सर्वश्रेष्ठ लूप
 </details>
 
 <details>
-<summary><strong>Tokens, context & safety</strong></summary>
+<summary><strong>टोकन, संदर्भ और सुरक्षा</strong></summary>
 
 `recall` · `compress` · `prompt_budget` · `shell_exec` · `transform_guard` · `action_gate` ·
 `security` · `human_gate` · `notify` · `checkpoint_restore` · `watcher` · `savings_ledger` ·

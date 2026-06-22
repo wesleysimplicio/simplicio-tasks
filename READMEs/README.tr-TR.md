@@ -231,6 +231,104 @@ bağlar — 11 runtime'ın hepsinde aynı protokol, yalnızca hız farklıdır.
 
 ---
 
+## 🏛️ Tasarım sütunları (ayrıntılı)
+
+Orkestrasyon gücünü dört mekanizma taşır. Her biri skill'e zaten bağlanmıştır — işte tam olarak
+**nerede yaşadığı** ve nasıl çalıştığı, ayrıntılı çizilmiş.
+
+| Sütun | Odak | Yaşadığı yer | Etiketler |
+|---|---|---|---|
+| **DAG + boru hattı** | bağımlılığa göre paralellik, öğe başına aşamalı | `dependency_graph` · [`references/orchestration.md`](../.claude/skills/simplicio-tasks/references/orchestration.md) (Adım 3 havuz + 3c boru hattı) | `enhancement` `orchestrator` `performance` `runtime` |
+| **Worktree yalıtımı** | ağacı bozmadan paralel düzenlemeler, birleştirme-kapılı | `worktree` · orchestration.md "Conflict-AWARE isolation" + birleştirme kapısı | `enhancement` `orchestrator` `runtime` |
+| **Çekişmeli doğrulama** | "teslim edildi"den önce bir şüpheciler paneli | [`quality-safety-delivery.md`](../.claude/skills/simplicio-tasks/references/quality-safety-delivery.md) Adım 4c · skill `simplicio-review` | `enhancement` `quality` `runtime` |
+| **Döngü bütçesi tavanı** | anti-sonsuz-döngü, çift çıkış | [`standing-loop-247.md`](../.claude/skills/simplicio-tasks/references/standing-loop-247.md) §4 · skill `simplicio-loop` · `hooks/loop_stop.py` | `enhancement` `coding-loop` `runtime` |
+
+### 1 · DAG + boru hattı — bağımlılığa göre paralellik, aşamalı
+
+```mermaid
+flowchart TD
+  subgraph G1["Dependency DAG · resumable · deps gate order"]
+    direction TB
+    a["item A · no deps"]
+    b["item B · no deps"]
+    c["item C · needs A and B"]
+    d["item D · needs C"]
+    a --> c
+    b --> c
+    c --> d
+  end
+  a --> PA
+  b --> PB
+  subgraph G2["Per-item pipeline · no global barrier"]
+    direction LR
+    PA["A implement"] --> PA2["review"] --> PA3["merge"]
+    PB["B implement"] --> PB2["review"] --> PB3["merge"]
+  end
+  PA3 -. "A merged unblocks C" .-> c
+```
+
+Bağımsızlar (A, B) hemen yelpaze gibi açılır; bağımlılar (C, D) DAG'ı bekler. Her öğe kendi başına
+implement → review → merge akışından geçer, böylece B hâlâ inşa edilirken A birleşir — **aşamalı,
+asla küresel bir bariyer değil**. Yeniden koşular biten düğümleri atlar (sürdürülebilir).
+
+### 2 · Worktree yalıtımı — paralel düzenlemeler, birleştirme-kapılı
+
+```mermaid
+flowchart TD
+  Q["items to run in parallel"] --> OV{"touch the same files?"}
+  OV -->|"no · disjoint files"| SH["shared checkout · own branch each · commit sequentially"]
+  OV -->|"yes · overlap"| WT["dedicated git worktree · SERIALIZED"]
+  SH --> MG
+  WT --> MG
+  MG["merge gate · full suite runs ONCE on the composed result"] --> OK{"green?"}
+  OK -->|"yes"| MERGED["merge + close with evidence"]
+  OK -->|"no"| FIX["reject · fix · never corrupt the tree"]
+```
+
+Ayrık öğeler tek bir checkout'u paylaşır (ucuz, N× yeniden-bağlama yok); yalnızca örtüşen öğeler
+özel bir worktree için ödeme yapar ve serileştirilir. Pahalı tam test takımı birleştirilmiş
+sonuçta **bir kez** koşar — N kısmi denetimden daha güçlü bir bitiş kapısı.
+
+### 3 · Çekişmeli doğrulama — teslimattan önce bir şüpheciler paneli
+
+```mermaid
+flowchart TD
+  IMPL["implementation · diff · run evidence · ACs"] --> PANEL
+  subgraph PANEL["Panel of skeptics (MEDIUM+) · each prompted to REFUTE"]
+    direction LR
+    V1["reviewer 1 · security / correctness"]
+    V2["reviewer 2 · code quality"]
+    V3["reviewer 3 · does-it-reproduce · web_verify"]
+  end
+  PANEL --> VOTE{"majority refute an AC?"}
+  VOTE -->|"yes"| BACK["back to fix"]
+  VOTE -->|"no"| SHIP["pass · deliver"]
+```
+
+MEDIUM+ öğeler için 2–3 bağımsız inceleyici her biri ÇÜRÜTMEYE çalışır (emin değilse varsayılan
+"bitmedi"). Herhangi bir kabul kriterinde çoğunluk-çürütmesi öğeyi geri gönderir. TRIVIAL/SMALL
+tek bir öz-inceleme tutar. (`simplicio-review`'e devredilir; ön-yüz diffleri bir `web_verify`
+girdisi gerektirir.)
+
+### 4 · Döngü bütçesi tavanı — anti-sonsuz-döngü, çift çıkış
+
+```mermaid
+flowchart TD
+  TURN["end of turn · stop hook"] --> P{"promise emitted AND evidence in-turn?"}
+  P -->|"yes"| EXIT1["EXIT success · close with evidence"]
+  P -->|"no"| CAP{"iteration over cap, OR budget halted, OR STOP signal?"}
+  CAP -->|"yes"| EXIT2["EXIT safety · stop, never a false done"]
+  CAP -->|"no"| REFEED["re-feed the goal · next iteration"]
+  REFEED --> TURN
+```
+
+Döngünün **iki bağımsız çıkışı** vardır: bir *başarı* çıkışı (gerçekten doğru olan, kanıt-kapılı
+bir `<promise>`) ve bir *güvenlik* çıkışı (`max_iterations` tavanı, `$` bütçe acil durdurma
+anahtarı veya bir STOP sinyali). Asla öz-bildirilen bir "bitti" ile çıkmaz — ve asla sonsuza dek
+çalışmaz. Bu `hooks/loop_stop.py`'dir (fail-open: herhangi bir hook hatası → durmaya izin ver).
+
+---
+
 ## 🔁 Döngü
 
 Orkestratörün altındaki sürücü, **sertleştirilmiş bir Ralph döngüsüdür** (`simplicio-loop`):
