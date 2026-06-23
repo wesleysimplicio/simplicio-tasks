@@ -1,7 +1,7 @@
 # 🔁 simplicio-loop — Der universelle, schleifenfähige KI-Orchestrator
 
 <p align="center">
-  <img src="../assets/simplicio-tasks-logo.svg" alt="simplicio-tasks" width="920" />
+  <img src="../assets/simplicio-loop-hero.jpg" alt="simplicio-loop" width="920" />
 </p>
 
 <p align="center">
@@ -122,7 +122,7 @@ Geschwindigkeit unterscheidet sich.** `orient_clamp.py` (Token-Ökonomie) funkti
 Laufzeit ohne jegliche Verdrahtung. Siehe [`adapters/MATRIX.md`](../adapters/MATRIX.md).
 
 <p align="center">
-  <img src="../assets/architecture.svg" alt="architecture" width="900" />
+  <img src="../assets/simplicio-loop-overview.png" alt="simplicio-loop - full system overview" width="760" />
 </p>
 
 ---

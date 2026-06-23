@@ -1,7 +1,7 @@
 # 🔁 simplicio-loop — 万能のループ型AIオーケストレーター
 
 <p align="center">
-  <img src="../assets/simplicio-tasks-logo.svg" alt="simplicio-tasks" width="920" />
+  <img src="../assets/simplicio-loop-hero.jpg" alt="simplicio-loop" width="920" />
 </p>
 
 <p align="center">
@@ -121,7 +121,7 @@ CI／レビューのフィードバックを解消し、マージし、新しい
 [`adapters/MATRIX.md`](../adapters/MATRIX.md) を参照してください。
 
 <p align="center">
-  <img src="../assets/architecture.svg" alt="architecture" width="900" />
+  <img src="../assets/simplicio-loop-overview.png" alt="simplicio-loop - full system overview" width="760" />
 </p>
 
 ---

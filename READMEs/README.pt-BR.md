@@ -1,7 +1,7 @@
 # 🔁 simplicio-loop — O Orquestrador de IA Universal em Loop
 
 <p align="center">
-  <img src="../assets/simplicio-tasks-logo.svg" alt="simplicio-tasks" width="920" />
+  <img src="../assets/simplicio-loop-hero.jpg" alt="simplicio-loop" width="920" />
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ muda.** O `orient_clamp.py` (economia de tokens) funciona em todos os runtimes s
 [`adapters/MATRIX.md`](../adapters/MATRIX.md).
 
 <p align="center">
-  <img src="../assets/architecture.svg" alt="architecture" width="900" />
+  <img src="../assets/simplicio-loop-overview.png" alt="simplicio-loop - full system overview" width="760" />
 </p>
 
 ---
