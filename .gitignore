@@ -5,3 +5,4 @@ dist/
 .orchestrator/
 *.db
 .serena/
+.agents/
