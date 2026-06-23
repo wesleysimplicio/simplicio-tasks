@@ -90,7 +90,7 @@ DECIDED change goes through `deterministic_edit` — never hand-write or regener
 
 When the run is driven by `simplicio-loop` (Step 0 auto-arm), two points are bound to REQUIRED
 operators instead of LLM fallbacks: `simplicio-mapper` surveys the repo (`orient`) and
-`simplicio task` applies+verifies each decided change (`execute`/`deterministic_edit`) — the AI
+`simplicio-dev-cli task` applies+verifies each decided change (`execute`/`deterministic_edit`) — the AI
 decides, the operators act. Both ship with `pip install simplicio-loop`; the loop BLOCKS if either
 is absent (see `references/extension-points.md` § bound operators).
 
