@@ -1,0 +1,52 @@
+# simplicio-loop
+
+**The Universal Looping AI Orchestrator** — a runtime-agnostic **super-plugin** (6 skills) that
+drains any queue of work end-to-end on **any LLM / runtime**:
+`discover → implement → verify → merge → close → watch 24/7`, behind safety gates and a hard cost
+kill-switch, at up to **96% fewer tokens**. Not a chatbot. A worker.
+
+![simplicio-loop](https://raw.githubusercontent.com/wesleysimplicio/simplicio-loop/main/assets/simplicio-loop-hero.jpg)
+
+## Install
+
+```bash
+pip install simplicio-loop
+```
+
+Then drop the skills + hooks into your project (or globally):
+
+```bash
+simplicio-loop install            # into ./.claude of the current project
+simplicio-loop install --global   # into ~/.claude (all projects)
+```
+
+Now invoke it from your agent runtime (Claude Code, Cursor, Codex, Gemini, …):
+
+```
+/simplicio-tasks finish all the open issues
+```
+
+## What you get — 6 skills
+
+| Skill | What it does |
+|---|---|
+| `simplicio-tasks` | The orchestrator loop: discover → implement → verify → merge → close → watch 24/7. |
+| `simplicio-loop` | Hardened Ralph loop — re-feed the goal until an evidence-gated `<promise>` or a cap. |
+| `simplicio-orient` | Terminal-first token economy — output-reduction catalog, tee-cache, signatures-read. |
+| `simplicio-review` | Adversarial review — parallel subagents on distinct rubrics, deduped into one verdict. |
+| `simplicio-compress` | Output + memory compression, byte-preserving identifiers. |
+| `simplicio-learn` | Retrospective — durable, deduped lessons written back to memory. |
+
+## Highlights
+
+- **11 runtimes, one protocol** — Claude Code, Codex, VS Code/Copilot, Cursor, Antigravity, Kiro,
+  OpenCode, Gemini, Aider, Hermes, OpenClaw.
+- **Evidence-gated completion** — never a false "done"; exits only on a verified `<promise>` or a
+  cap / budget / STOP.
+- **Token economy** — honest "answer concisely" baseline; savings credited only on verified-correct
+  outcomes.
+
+Requires Python 3.8+. The skills, hooks, and installer are pure cross-platform Python.
+
+MIT — part of the [Simplicio](https://github.com/wesleysimplicio) ecosystem.
+Full docs: <https://github.com/wesleysimplicio/simplicio-loop>

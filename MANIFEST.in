@@ -1,0 +1,3 @@
+include PYPI.md
+include LICENSE
+recursive-include simplicio_loop/_bundle *

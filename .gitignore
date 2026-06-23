@@ -11,3 +11,8 @@ __pycache__/
 # OS / editor cruft
 .DS_Store
 Thumbs.db
+
+# Python build artifacts
+dist/
+build/
+*.egg-info/
