@@ -157,6 +157,13 @@ on the STOP signal, budget exhaustion, or a safety halt. Full ten axes + arming 
 `references/standing-loop-247.md`.
 
 ## Notes
+- **Language policy.** Write ALL human-facing output in the USER's language (the language they use
+  with the model) — issue/PR comments, requested-change replies, status digests / notifications,
+  confirmations, clarifying questions, evidence-comment prose, and the final Done/Evidence/Status
+  summary. Keep in ENGLISH (never translate): code, commands, flags, file paths, branch names,
+  identifiers, extension-point names, **Conventional-Commit messages** (repo convention), the
+  savings-line format string, and the machine-tier worker-report tokens. Detect the user's language
+  from their messages / the skill argument; default to English only if it is genuinely unknown.
 - End every message with the mandatory savings line:
   ```
   simplicio-tasks: ~<spent> tokens · baseline ~<control-arm> · saved ~<saved> (<pct>%)
