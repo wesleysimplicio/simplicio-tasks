@@ -397,7 +397,7 @@ python3 hooks/orient_clamp.py --json -- git diff  # machine summary
 
 ## 🏗️ जिनके कंधों पर खड़ा है
 
-simplicio-tasks को GitHub पर सर्वश्रेष्ठ लूप + टोकन-अर्थव्यवस्था कार्य का **गहन अध्ययन करने के
+simplicio-loop को GitHub पर सर्वश्रेष्ठ लूप + टोकन-अर्थव्यवस्था कार्य का **गहन अध्ययन करने के
 बाद** बनाया गया, और प्रत्येक को एक केंद्रित स्किल में समेटा गया — अनुशासन रखते हुए, तिकड़मों को
 छोड़ते हुए।
 
@@ -412,7 +412,7 @@ simplicio-tasks को GitHub पर सर्वश्रेष्ठ लूप
 | 🧠 [**headroom**](https://github.com/headroomlabs-ai/headroom) | tee-cache के ऊपर **प्रतिवर्ती** compress-cache-retrieve (CCR); सामग्री-प्रकार राउटिंग वर्गीकरण | प्रशिक्षित मॉडल + ट्रैफ़िक प्रॉक्सी (टर्मिनल-फ़र्स्ट, रनटाइम-निरपेक्ष डिज़ाइन के विरुद्ध) |
 | 🎭 [**Playwright**](https://github.com/microsoft/playwright) (+[mcp](https://github.com/microsoft/playwright-mcp), [python](https://github.com/microsoft/playwright-python)) | फ़्रंट-एंड प्रमाण के लिए एक असली ब्राउज़र चलाएँ — `web_verify` साक्ष्य के रूप में स्क्रीनशॉट + ट्रेस | संदर्भ में DOM/पिक्सेल (साक्ष्य आर्टिफ़ैक्ट पाथ है, बाइट्स नहीं) |
 
-> वे टोकन घटाते हैं; simplicio-tasks **काम करता है** और काम करते हुए टोकन घटाता है।
+> वे टोकन घटाते हैं; simplicio-loop **काम करता है** और काम करते हुए टोकन घटाता है।
 
 ---
 

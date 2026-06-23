@@ -443,7 +443,7 @@ python3 hooks/orient_clamp.py --json -- git diff  # machine summary
 
 ## 🏗️ مبنية على أكتاف من سبقونا
 
-بُنيت simplicio-tasks **بعد دراسة معمّقة** لأفضل أعمال الحلقات واقتصاد الرموز على GitHub، وتدمج
+بُنيت simplicio-loop **بعد دراسة معمّقة** لأفضل أعمال الحلقات واقتصاد الرموز على GitHub، وتدمج
 كلاً منها في مهارة مركّزة — مع الاحتفاظ بالانضباط ونبذ الحِيَل.
 
 | المشروع | ماذا أخذنا | ماذا تركنا |
@@ -457,7 +457,7 @@ python3 hooks/orient_clamp.py --json -- git diff  # machine summary
 | 🧠 [**headroom**](https://github.com/headroomlabs-ai/headroom) | ضغط-تخزين-استرجاع (CCR) **قابل للعكس** فوق tee-cache؛ تصنيف توجيه بحسب نوع المحتوى | النموذج المُدرَّب + وكيل حركة المرور (يناقضان تصميم الطرفية-أولاً المستقل عن بيئة التشغيل) |
 | 🎭 [**Playwright**](https://github.com/microsoft/playwright) (+[mcp](https://github.com/microsoft/playwright-mcp), [python](https://github.com/microsoft/playwright-python)) | تشغيل متصفّح حقيقي لإثبات الواجهة الأمامية — لقطة شاشة + تتبّع كدليل `web_verify` | DOM/البكسلات في السياق (الدليل هو مسار الأثر، لا البايتات) |
 
-> فهي تقلّل الرموز؛ بينما simplicio-tasks **تنجز العمل** وتقلّل الرموز أثناء إنجازه.
+> فهي تقلّل الرموز؛ بينما simplicio-loop **تنجز العمل** وتقلّل الرموز أثناء إنجازه.
 
 ---
 

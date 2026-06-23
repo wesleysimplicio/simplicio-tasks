@@ -379,7 +379,7 @@ python3 hooks/orient_clamp.py --json -- git diff  # machine summary
 
 ## 🏗️ 站在巨人的肩膀上
 
-simplicio-tasks 是在**深入研究**了 GitHub 上最出色的循环与 token 经济成果之后构建的，并把
+simplicio-loop 是在**深入研究**了 GitHub 上最出色的循环与 token 经济成果之后构建的，并把
 每一项折入一个专注的 skill —— 保留纪律，舍弃噱头。
 
 | 项目 | 我们采纳了什么 | 我们舍弃了什么 |
@@ -393,7 +393,7 @@ simplicio-tasks 是在**深入研究**了 GitHub 上最出色的循环与 token 
 | 🧠 [**headroom**](https://github.com/headroomlabs-ai/headroom) | tee-cache 之上**可逆的** compress-cache-retrieve（CCR）、内容类型路由分类法 | 训练好的模型 + 流量代理（与终端优先、运行时无关的设计相矛盾） |
 | 🎭 [**Playwright**](https://github.com/microsoft/playwright)（+[mcp](https://github.com/microsoft/playwright-mcp)、[python](https://github.com/microsoft/playwright-python)） | 驱动真实浏览器以提供前端证明 —— 作为 `web_verify` 证据的截图 + 轨迹 | 上下文中的 DOM/像素（证据是工件路径，而非字节） |
 
-> 它们减少 token；simplicio-tasks **完成工作**，并在完成工作的同时减少 token。
+> 它们减少 token；simplicio-loop **完成工作**，并在完成工作的同时减少 token。
 
 ---
 

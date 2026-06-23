@@ -400,7 +400,7 @@ python3 hooks/orient_clamp.py --json -- git diff  # machine summary
 
 ## 🏗️ Devlerin omuzlarında
 
-simplicio-tasks, GitHub'daki en iyi döngü + token-ekonomisi çalışmalarını **derinlemesine
+simplicio-loop, GitHub'daki en iyi döngü + token-ekonomisi çalışmalarını **derinlemesine
 inceledikten sonra** geliştirildi ve her birini odaklanmış bir skill'e katlar — disiplini
 koruyup, hileleri bırakarak.
 
@@ -415,7 +415,7 @@ koruyup, hileleri bırakarak.
 | 🧠 [**headroom**](https://github.com/headroomlabs-ai/headroom) | tee-cache üzerinde **tersine çevrilebilir** compress-cache-retrieve (CCR); içerik-türü yönlendirme taksonomisi | eğitilmiş model + trafik proxy'si (terminal-öncelikli, runtime'dan bağımsız tasarımla çelişir) |
 | 🎭 [**Playwright**](https://github.com/microsoft/playwright) (+[mcp](https://github.com/microsoft/playwright-mcp), [python](https://github.com/microsoft/playwright-python)) | ön-yüz kanıtı için gerçek bir tarayıcı sür — `web_verify` kanıtı olarak ekran görüntüsü + iz | bağlamdaki DOM/pikseller (kanıt, bayt değil, artefakt yoludur) |
 
-> Onlar token azaltır; simplicio-tasks **işi yapar** ve bunu yaparken token'ı azaltır.
+> Onlar token azaltır; simplicio-loop **işi yapar** ve bunu yaparken token'ı azaltır.
 
 ---
 

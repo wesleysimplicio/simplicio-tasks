@@ -400,7 +400,7 @@ python3 hooks/orient_clamp.py --json -- git diff  # machine summary
 
 ## 🏗️ Sur les épaules de géants
 
-simplicio-tasks a été conçu **après une étude approfondie** du meilleur travail de boucle + économie de
+simplicio-loop a été conçu **après une étude approfondie** du meilleur travail de boucle + économie de
 tokens sur GitHub, et intègre chacun dans une skill ciblée — en conservant la discipline, en
 abandonnant les gadgets.
 
@@ -415,7 +415,7 @@ abandonnant les gadgets.
 | 🧠 [**headroom**](https://github.com/headroomlabs-ai/headroom) | compress-cache-retrieve (CCR) **réversible** par-dessus le tee-cache ; taxonomie de routage par type de contenu | le modèle entraîné + proxy de trafic (contredisent la conception terminal-first, indépendante du runtime) |
 | 🎭 [**Playwright**](https://github.com/microsoft/playwright) (+[mcp](https://github.com/microsoft/playwright-mcp), [python](https://github.com/microsoft/playwright-python)) | piloter un vrai navigateur pour la preuve front-end — screenshot + trace comme preuve `web_verify` | DOM/pixels dans le contexte (la preuve est le chemin de l'artefact, pas les octets) |
 
-> Eux réduisent les tokens ; simplicio-tasks **fait le travail** et réduit les tokens en le faisant.
+> Eux réduisent les tokens ; simplicio-loop **fait le travail** et réduit les tokens en le faisant.
 
 ---
 
