@@ -111,7 +111,9 @@ Opening a Draft PR is `dev_done`, NOT `merge_ready`. Pursue these loops, POLLED 
    (3) `git rebase --continue`, re-run the gate + smoke; (4) push. Only after 3 failed rounds →
    dead-letter with full conflict evidence.
 4. **Send evidence — to the PR AND the source item.** Attach receipt, green gates, smoke result,
-   real savings via `pr`/`evidence`; post a short pointer comment (link, don't paste logs).
+   real savings via `pr`/`evidence`; post a short pointer comment (link, don't paste logs). Write
+   the comment prose in the USER's language (SKILL.md "Language policy"); keep code, commit
+   messages, paths, and identifiers in English.
 5. **Merge-readiness.** `merge_ready` only when CI green AND review approved AND ACs met.
    `done` in the tracker ≠ merge-ready.
 
