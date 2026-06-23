@@ -33,8 +33,9 @@ SKILLS = ["simplicio-tasks", "simplicio-loop", "simplicio-orient",
           "simplicio-review", "simplicio-compress", "simplicio-learn"]
 # The simplicio-loop drive REQUIRES two operators (see simplicio-loop/SKILL.md § Bound operators):
 #   simplicio-mapper -> repo survey (binds `orient`); binary: simplicio-mapper
-#   simplicio-cli    -> action operator (binds `execute`/`deterministic_edit`); binary: simplicio
-OPERATORS = [("simplicio-mapper", "simplicio-mapper"), ("simplicio-cli", "simplicio")]
+#   simplicio-cli    -> action operator (binds `execute`/`deterministic_edit`); binary: simplicio-dev-cli
+# (the bare `simplicio` command is reserved for the Rust simplicio-runtime, not this operator.)
+OPERATORS = [("simplicio-mapper", "simplicio-mapper"), ("simplicio-cli", "simplicio-dev-cli")]
 MARK_A, MARK_B = "<!-- simplicio-tasks:begin -->", "<!-- simplicio-tasks:end -->"
 ENTRY_BLOCK = (
     MARK_A + "\n"
@@ -169,7 +170,7 @@ def print_claude_snippet():
 def ensure_operators(skip_install=False):
     """Install + verify the two REQUIRED loop operators (simplicio-mapper, simplicio-cli).
 
-    The simplicio-loop drive surveys via `simplicio-mapper` and acts via `simplicio` instead of
+    The simplicio-loop drive surveys via `simplicio-mapper` and acts via `simplicio-dev-cli` instead of
     the LLM, so both must be present. pip-install (unless skipped), then verify the binaries are on
     PATH. Missing binary after install is a hard error — the loop would BLOCK at runtime otherwise.
     """

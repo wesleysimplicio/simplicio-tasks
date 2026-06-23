@@ -25,7 +25,7 @@ deps of `pip install simplicio-loop` (the loop BLOCKS if either is absent):
 | Operator | Binary | pip pkg | Binds | Role |
 |---|---|---|---|---|
 | [simplicio-mapper](https://github.com/wesleysimplicio/simplicio-mapper) | `simplicio-mapper` | `simplicio-mapper` | `orient` | **survey** the repo → `.simplicio/*.json` (the levantamento that feeds the goal) |
-| [simplicio-dev-cli](https://github.com/wesleysimplicio/simplicio-dev-cli) | `simplicio` | `simplicio-cli` | `execute`/`deterministic_edit` | **operate** — apply+verify each decided change via its 6-layer contract, instead of the AI hand-editing |
+| [simplicio-dev-cli](https://github.com/wesleysimplicio/simplicio-dev-cli) | `simplicio-dev-cli` | `simplicio-cli` | `execute`/`deterministic_edit` | **operate** — apply+verify each decided change via its 6-layer contract, instead of the AI hand-editing |
 
 The AI decides; the operators act. See `.claude/skills/simplicio-loop/SKILL.md` § Bound operators
 and `.claude/skills/simplicio-tasks/references/extension-points.md` § bound operators.

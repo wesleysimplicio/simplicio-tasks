@@ -50,14 +50,17 @@ hard dependencies of the `simplicio-loop` package (`pip install simplicio-loop` 
 | Operator | CLI (binary) | Binds | Role in the loop |
 |---|---|---|---|
 | **simplicio-mapper** | `simplicio-mapper` | `orient` / `recall` | **Survey** — maps the repo(s) into `.simplicio/*.json` (project-map, precedent-index, symbol-index, call-graph, docs). This survey, not an ad-hoc LLM read, is what feeds the goal each turn. |
-| **simplicio-dev-cli** | `simplicio` | `execute` / `deterministic_edit` / `validate` / `diagnostics` | **Operate** — applies a DECIDED change through its 6-layer contract (mapper context → precedent → prompt → diff → test → verify, ≤3 retries). The CLI edits and verifies; the AI does not hand-write the diff. |
+| **simplicio-dev-cli** | `simplicio-dev-cli` | `execute` / `deterministic_edit` / `validate` / `diagnostics` | **Operate** — applies a DECIDED change through its 6-layer contract (mapper context → precedent → prompt → diff → test → verify, ≤3 retries). The CLI edits and verifies; the AI does not hand-write the diff. |
 
 **Preflight (MANDATORY, BLOCKING).** Before iteration 1, confirm both operators are on PATH:
 ```bash
 simplicio-mapper --version   # survey operator
-simplicio --version       # action operator (simplicio-dev-cli, package: simplicio-cli)
+simplicio-dev-cli --help     # action operator (pkg simplicio-cli; exposes `simplicio-dev-cli`)
 ```
-If either is missing, do NOT fall back to LLM survey/editing — STOP and emit
+The action binary is `simplicio-dev-cli` (from `pip install simplicio-cli`) — NOT the bare
+`simplicio`, which is reserved for the compiled Rust `simplicio-runtime` and is not what this loop
+binds. `simplicio-dev-cli` has no `--version` subcommand; `--help` exiting 0 is the readiness
+proof. If either operator is missing, do NOT fall back to LLM survey/editing — STOP and emit
 `simplicio-loop: BLOCKED — missing operator <name>; run: pip install simplicio-loop` (the install
 re-pulls `simplicio-mapper` + `simplicio-cli`). This requirement is scoped to the loop drive.
 
@@ -69,11 +72,11 @@ levantamento, run the mapper per repo root and aggregate the JSON.
 **Operate step (every turn that mutates code).** Once the AC and the change are DECIDED, delegate
 the mutation to the operator, one decided change at a time:
 ```bash
-simplicio task "<the decided, AC-scoped change>" --target <file> [--json]
+simplicio-dev-cli task "<the decided, AC-scoped change>" --target <file> [--json]
 ```
 The operator applies the diff, runs the tests, and self-corrects up to 3× — its passing
 verification IS the in-turn evidence the promise gate needs (below). The AI never edits the file
-directly inside the loop; if `simplicio` cannot complete a change after its retries, treat that
+directly inside the loop; if `simplicio-dev-cli` cannot complete a change after its retries, treat that
 as a genuine blocker to investigate, not a reason to hand-edit around it.
 
 **Where each operator fires.** The AI only DECIDES (triage, AC extraction, choosing the change,
@@ -81,14 +84,14 @@ merge/close gates); the operators do survey + apply:
 
 | Phase | Operator | Command |
 |---|---|---|
-| Preflight (before iteration 1) | both | `simplicio-mapper --version` · `simplicio --version` → BLOCK if missing |
+| Preflight (before iteration 1) | both | `simplicio-mapper --version` · `simplicio-dev-cli --help` → BLOCK if missing |
 | Survey (loop start; multi-repo: per root) | mapper | `simplicio-mapper index . --json` → `.simplicio/*.json` |
 | Loop contract step 2 — Triage (every turn) | mapper | re-read `.simplicio/*.json`; `simplicio-mapper index . --json` to refresh if the tree changed |
-| Loop contract step 3 — Work the goal | dev-cli | `simplicio task "<decided change>" --target <file> [--json]` |
+| Loop contract step 3 — Work the goal | dev-cli | `simplicio-dev-cli task "<decided change>" --target <file> [--json]` |
 | Evidence-gated `<promise>` / `simplicio-tasks` Step 4b | dev-cli | the operator's passing test+verify pass = in-turn evidence |
 
 One turn: `preflight → survey (mapper) → triage (re-read survey) → DECIDE (AI) → operate
-(simplicio task: apply+test+retry ≤3×) → <promise> only if the operator's gate passed`.
+(simplicio-dev-cli task: apply+test+retry ≤3×) → <promise> only if the operator's gate passed`.
 
 ## State file (single source of truth)
 
@@ -120,8 +123,8 @@ A sibling flag file `.orchestrator/loop/done` is `touch`ed only when the promise
    branches, the `.orchestrator/loop/done` flag). Act only on what is still genuinely open; never
    redo done work or act on a stale picture (idempotency).
 3. **Work the goal** each turn as if fresh, against that triaged state. The model DECIDES the
-   AC-scoped change; the **`simplicio` operator APPLIES and verifies it**
-   (`simplicio task "<change>" --target <file>`) — do not hand-edit inside the loop. End EVERY
+   AC-scoped change; the **`simplicio-dev-cli` operator APPLIES and verifies it**
+   (`simplicio-dev-cli task "<change>" --target <file>`) — do not hand-edit inside the loop. End EVERY
    iteration with a short, concrete verification — the operator's passing test run, or one gate /
    command / `file:line` receipt. Keep iterations small and verifiable: a turn that only edits
    without verifying is incomplete.
@@ -136,7 +139,7 @@ The classic Ralph loop trusts the model to be honest. We do not. A `<promise>` i
 only if, in the SAME turn, there is concrete evidence the work is truly done:
 
 - the run-verification gate passed ("works, not just compiles" — `simplicio-tasks` Step 4b) —
-  the `simplicio` operator's passing test+verify pass (its contract step 5/6) satisfies this, or
+  the `simplicio-dev-cli` operator's passing test+verify pass (its contract step 5/6) satisfies this, or
 - the named acceptance criteria are each checked with a `file:line` or command-output receipt, or
 - for a queue, the source re-query confirms the items are actually closed/merged.
 
