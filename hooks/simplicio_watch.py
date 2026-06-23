@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""headroom-watch — token monitoring dashboard for simplicio-loop.
+"""Simplicio Token Monitor (CLI watch) — proxy + savings status for simplicio-loop.
+
+The compression proxy is powered by headroom-ai (a third-party accelerator Simplicio
+integrates); its binary is still invoked as `headroom`, so those command names stay.
 
 Usage:
-    python3 hooks/headroom_watch.py status    # show proxy + savings status
-    python3 hooks/headroom_watch.py start     # start headroom proxy
-    python3 hooks/headroom_watch.py stop      # stop headroom proxy
+    python3 hooks/simplicio_watch.py status    # show proxy + savings status
+    python3 hooks/simplicio_watch.py start     # start the compression proxy
+    python3 hooks/simplicio_watch.py stop      # stop the compression proxy
 """
 import json
 import os
@@ -13,6 +16,7 @@ import sys
 
 HOME = os.path.expanduser("~")
 LOGS = os.path.join(HOME, ".hermes", "logs")
+PROXY_SERVICE = "ai.simplicio.proxy"
 
 
 def log(msg):
@@ -29,17 +33,17 @@ def run(cmd, timeout=10):
 
 def status():
     out, rc = run(["lsof", "-i", ":8787"])
-    if "headroom" in out:
-        log("✅ headroom proxy — RUNNING (port 8787)")
+    if "headroom" in out:  # external proxy process name
+        log("✅ Simplicio proxy — RUNNING (port 8787)")
     else:
-        log("❌ headroom proxy — NOT RUNNING")
-    out2, _ = run(["headroom", "memory", "stats"])
+        log("❌ Simplicio proxy — NOT RUNNING")
+    out2, _ = run(["headroom", "memory", "stats"])  # external accelerator binary
     for line in out2.split("\n"):
         if "Total" in line or "Database" in line:
             log(f"  {line.strip()}")
-    out3, _ = run(["headroom", "output-savings"])
+    out3, _ = run(["headroom", "output-savings"])  # external accelerator binary
     if "No output-savings data yet" in out3:
-        log("  📊 Output savings: no data yet (seed with headroom learn)")
+        log("  📊 Output savings: no data yet (seed with `headroom learn`)")
     else:
         log(f"  📊 Output savings: {out3[:80]}")
     # Savings ledger
@@ -48,20 +52,20 @@ def status():
     if os.path.isfile(ledger):
         total = sum(1 for _ in open(ledger))
         log(f"  💰 Savings ledger: {total} events")
-    log(f"  🪵 Logs: {LOGS}/headroom.log")
+    log(f"  🪵 Logs: {LOGS}/simplicio-proxy.log")
     return 0 if "RUNNING" in out2 else 1
 
 
 def start():
-    log("Starting headroom proxy on port 8787...")
-    log("  Use: headroom proxy --port 8787")
-    log("  Then: launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.simplicio.headroom.plist")
+    log("Starting Simplicio compression proxy on port 8787...")
+    log("  Use: headroom proxy --port 8787")  # external accelerator binary
+    log(f"  Then: launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/{PROXY_SERVICE}.plist")
     return 0
 
 
 def stop():
-    log("Stopping headroom proxy...")
-    run(["launchctl", "bootout", f"gui/{os.getuid()}/ai.simplicio.headroom"])
+    log("Stopping Simplicio compression proxy...")
+    run(["launchctl", "bootout", f"gui/{os.getuid()}/{PROXY_SERVICE}"])
     log("  Stopped.")
     return 0
 

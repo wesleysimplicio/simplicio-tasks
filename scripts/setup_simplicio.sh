@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# setup_headroom.sh — install and configure headroom for simplicio-loop
-# Usage: bash scripts/setup_headroom.sh [--port 8788] [--dashboard-port 9090]
+# setup_simplicio.sh — install + configure the Simplicio Token Monitor and compression proxy.
+# The proxy is powered by headroom-ai (a third-party accelerator Simplicio integrates); its
+# binary is still `headroom`, so install/run commands keep that name. Everything else is Simplicio.
+# Usage: bash scripts/setup_simplicio.sh [--port 8788] [--dashboard-port 9090]
 set -euo pipefail
 
 PORT="${2:-8788}"
@@ -8,35 +10,37 @@ DASH_PORT="${4:-9090}"
 HERMES_CONFIG="$HOME/.hermes/config.yaml"
 LAUNCHD="$HOME/Library/LaunchAgents"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROXY_SERVICE="ai.simplicio.proxy"
+MONITOR_SERVICE="ai.simplicio.token-monitor"
 
-echo "⬡ headroom setup — simplicio-loop"
+echo "⬡ Simplicio Token Monitor setup — simplicio-loop"
 echo ""
 
 # 1. Install
-echo "📦 Installing headroom-ai..."
+echo "📦 Installing compression accelerator (headroom-ai)..."
 pip install headroom-ai httpx[http2] 2>&1 | tail -2
 
-# 2. Verify headroom binary
+# 2. Verify proxy binary
 HEADROOM=$(which headroom 2>/dev/null || echo "")
 if [ -z "$HEADROOM" ]; then
   HEADROOM=$(find ~/ -path "*/bin/headroom" -type f 2>/dev/null | head -1)
 fi
 if [ -z "$HEADROOM" ]; then
-  echo "❌ headroom binary not found after install"
+  echo "❌ proxy binary not found after install"
   exit 1
 fi
-echo "✅ headroom: $HEADROOM"
+echo "✅ proxy binary: $HEADROOM"
 
-# 3. Create launchd plist for proxy
-echo "📋 Creating launchd plist for proxy..."
+# 3. Create launchd plist for the compression proxy
+echo "📋 Creating launchd plist for proxy ($PROXY_SERVICE)..."
 mkdir -p "$LAUNCHD"
-cat > "$LAUNCHD/ai.simplicio.headroom.plist" << EOF
+cat > "$LAUNCHD/$PROXY_SERVICE.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>ai.simplicio.headroom</string>
+    <string>$PROXY_SERVICE</string>
     <key>ProgramArguments</key>
     <array>
         <string>$HEADROOM</string>
@@ -53,9 +57,9 @@ cat > "$LAUNCHD/ai.simplicio.headroom.plist" << EOF
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>$HOME/.hermes/logs/headroom.log</string>
+    <string>$HOME/.hermes/logs/simplicio-proxy.log</string>
     <key>StandardErrorPath</key>
-    <string>$HOME/.hermes/logs/headroom.error.log</string>
+    <string>$HOME/.hermes/logs/simplicio-proxy.error.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
@@ -64,45 +68,47 @@ cat > "$LAUNCHD/ai.simplicio.headroom.plist" << EOF
 </dict>
 </plist>
 EOF
-echo "✅ $LAUNCHD/ai.simplicio.headroom.plist"
+echo "✅ $LAUNCHD/$PROXY_SERVICE.plist"
 
-# 4. Create launchd plist for dashboard
-echo "📋 Creating launchd plist for dashboard..."
-cat > "$LAUNCHD/ai.simplicio.headroom-dashboard.plist" << EOF
+# 4. Create launchd plist for the Simplicio Token Monitor
+echo "📋 Creating launchd plist for token monitor ($MONITOR_SERVICE)..."
+cat > "$LAUNCHD/$MONITOR_SERVICE.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>ai.simplicio.headroom-dashboard</string>
+    <string>$MONITOR_SERVICE</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>$SCRIPT_DIR/hooks/headroom_dashboard.py</string>
+        <string>$SCRIPT_DIR/hooks/simplicio_dashboard.py</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>$HOME/.hermes/logs/headroom-dashboard.log</string>
+    <string>$HOME/.hermes/logs/simplicio-token-monitor.log</string>
     <key>StandardErrorPath</key>
-    <string>$HOME/.hermes/logs/headroom-dashboard.error.log</string>
+    <string>$HOME/.hermes/logs/simplicio-token-monitor.error.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PORT</key>
         <string>$DASH_PORT</string>
+        <key>SIMPLICIO_PROXY_PORT</key>
+        <string>$PORT</string>
         <key>PATH</key>
         <string>/usr/local/bin:/usr/bin:/bin</string>
     </dict>
 </dict>
 </plist>
 EOF
-echo "✅ $LAUNCHD/ai.simplicio.headroom-dashboard.plist"
+echo "✅ $LAUNCHD/$MONITOR_SERVICE.plist"
 
 # 5. Add env vars to .zshrc (idempotent)
 echo "🔧 Configuring shell environment..."
-for VAR in 'export ANTHROPIC_BASE_URL=http://127.0.0.1:'"$PORT" 'export OPENAI_BASE_URL=https://api.deepseek.com/v1'; do
+for VAR in 'export ANTHROPIC_BASE_URL=http://127.0.0.1:'"$PORT" 'export OPENAI_BASE_URL=https://api.deepseek.com/v1' 'export SIMPLICIO_PROXY_PORT='"$PORT"; do
   KEY=$(echo "$VAR" | cut -d= -f1 | cut -d' ' -f2)
   if grep -q "$KEY" ~/.zshrc 2>/dev/null; then
     echo "  $KEY already in .zshrc"
@@ -127,18 +133,18 @@ fi
 
 # 7. Load services
 echo "🚀 Starting services..."
-launchctl bootout gui/$(id -u)/ai.simplicio.headroom 2>/dev/null || true
-launchctl bootstrap gui/$(id -u) "$LAUNCHD/ai.simplicio.headroom.plist" 2>&1
-launchctl bootout gui/$(id -u)/ai.simplicio.headroom-dashboard 2>/dev/null || true
-launchctl bootstrap gui/$(id -u) "$LAUNCHD/ai.simplicio.headroom-dashboard.plist" 2>&1
+launchctl bootout "gui/$(id -u)/$PROXY_SERVICE" 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$LAUNCHD/$PROXY_SERVICE.plist" 2>&1
+launchctl bootout "gui/$(id -u)/$MONITOR_SERVICE" 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$LAUNCHD/$MONITOR_SERVICE.plist" 2>&1
 
 sleep 3
 echo ""
 echo "═══════════════════════════════════════"
-echo "  ✅ headroom setup complete"
+echo "  ✅ Simplicio Token Monitor setup complete"
 echo "═══════════════════════════════════════"
-echo "  Proxy:  http://127.0.0.1:$PORT"
-echo "  Dashboard: http://127.0.0.1:$DASH_PORT"
-echo "  Hermes: → proxy → DeepSeek"
+echo "  Proxy:          http://127.0.0.1:$PORT"
+echo "  Token Monitor:  http://127.0.0.1:$DASH_PORT"
+echo "  Hermes:         → proxy → DeepSeek"
 echo "═══════════════════════════════════════"
 echo ""

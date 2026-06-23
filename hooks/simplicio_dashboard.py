@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""headroom-dashboard — web dashboard + monitor for headroom token savings.
+"""Simplicio Token Monitor — web dashboard + monitor for token savings.
+
+Reads the local compression proxy log (powered by headroom-ai, a third-party
+accelerator Simplicio integrates) and renders the Simplicio-branded dashboard.
 
 Usage:
-    python3 hooks/headroom_dashboard.py              # start web server on :9090
-    python3 hooks/headroom_dashboard.py --port 9091
+    python3 hooks/simplicio_dashboard.py              # start web server on :9090
+    python3 hooks/simplicio_dashboard.py --port 9091
 
 Front-end is split into STYLE / BADGE_SVG / BODY / SCRIPT constants and composed
 into HTML via placeholder substitution — single-file (deploy-friendly) but no
@@ -18,7 +21,11 @@ from pathlib import Path
 
 HOME = os.path.expanduser("~")
 REPO_ROOT = Path(__file__).resolve().parents[1]
+# New Simplicio-named proxy logs first; the external accelerator's own log dir
+# (~/.headroom, written by `headroom proxy`) and legacy paths kept for back-compat.
 LOG_CANDIDATES = [
+    Path(HOME) / ".simplicio" / "logs" / "proxy.log",
+    Path(HOME) / ".hermes" / "logs" / "simplicio-proxy.log",
     Path(HOME) / ".headroom" / "logs" / "proxy.log",
     Path(HOME) / ".hermes" / "logs" / "headroom.log",
     Path(HOME) / ".hermes" / "logs" / "headroom.error.log",
@@ -27,8 +34,8 @@ LOGO_CANDIDATES = [
     REPO_ROOT / "assets" / "simplicio-loop-logo.png",
     Path(HOME) / "Projetos" / "ai" / "simplicio-runtime" / "site" / "assets" / "img" / "simplicio-logo.png",
 ]
-PID_FILE = Path("/tmp") / "headroom-dashboard.pid"
-HEADROOM_PORT = os.environ.get("HEADROOM_PORT", "8788")
+PID_FILE = Path("/tmp") / "simplicio-token-monitor.pid"
+PROXY_PORT = os.environ.get("SIMPLICIO_PROXY_PORT", os.environ.get("HEADROOM_PORT", "8788"))
 
 # Each runtime: how the 6 skills LOAD, how the loop DRIVE is bound, and coverage STATE.
 RUNTIMES = [
@@ -102,7 +109,7 @@ STYLE = """<style>
     --line: #14352a; --line-soft: #0f2419;
     --text: #eafff0; --muted: #86a89a; --faint: #3a5547;
     --green: #9dff1a; --lime: #caff26; --cyan: #36d7ff;
-    --amber: #ffc857; --red: #ff5e6c; --violet: #b88cff;
+    --yellow: #ffd23f; --amber: #ffc857; --red: #ff5e6c; --violet: #b88cff;
     --glow: 0 0 26px rgba(157,255,26,0.22);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -264,8 +271,12 @@ STYLE = """<style>
   .log-line .msg .num, .log-line .msg .hl { color: var(--green); }
   .log-empty { color: var(--faint); padding: 8px 4px; }
 
-  .footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  .footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center;
             color: #355346; font-size: 0.64rem; letter-spacing: 0.05em; margin-top: 16px; }
+  /* Simplicio Token Monitor brand lockup — green + yellow */
+  .brandline { font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.74rem; }
+  .brandline .tm-g { color: var(--green); text-shadow: 0 0 12px rgba(157,255,26,0.5); }
+  .brandline .tm-y { color: var(--yellow); text-shadow: 0 0 12px rgba(255,210,63,0.45); }
 
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
   .live-dot { animation: pulse 1.5s ease-in-out infinite; }
@@ -295,7 +306,7 @@ BODY = """<div class="wrap">
       <img class="logo" src="/assets/simplicio-logo.png" alt="Simplicio Loop">
     </div>
     <aside class="status">
-      <div class="head">runtime status</div>
+      <div class="head brandline"><span class="tm-g">Simplicio</span> <span class="tm-y">Token Monitor</span></div>
       <div class="status-row"><span>proxy</span><span class="badge"><span class="dot" id="statusDot"></span><span id="statusLabel">checking</span></span></div>
       <div class="status-row"><span>port</span><strong id="portLabel">--</strong></div>
       <div class="status-row"><span>uptime</span><strong id="uptimeLabel">--</strong></div>
@@ -345,7 +356,7 @@ BODY = """<div class="wrap">
   </div>
 
   <div class="footer">
-    <span>simplicio-loop · headroom token monitor</span>
+    <span class="brandline">simplicio-loop · <span class="tm-g">Simplicio</span> <span class="tm-y">Token Monitor</span></span>
     <span id="runtimeCount">10 runtimes</span>
   </div>
 </div>"""
@@ -393,8 +404,8 @@ async function refresh(){
       card('tokens before',fmt(d.tokens_before),'amber','raw prompt/output',d.tokens_before>0?Math.min(100,Math.round(d.tokens_before/50000*100)):0,'amber'),
       card('tokens after',fmt(d.tokens_after),'blue','compressed path',d.tokens_after>0?Math.min(100,Math.round(d.tokens_after/50000*100)):0,'blue'),
       card('tokens saved',fmt(d.tokens_saved),d.tokens_saved>0?'green':'amber',d.savings_pct+'% reduction',pct,'green'),
-      card('cache hit',d.cache_hit_pct+'%',d.cache_hit_pct>50?'green':'amber','headroom reuse',d.cache_hit_pct,'green'),
-      card('memories',fmt(d.memories),'purple','headroom memory',memPct,'purple'),
+      card('cache hit',d.cache_hit_pct+'%',d.cache_hit_pct>50?'green':'amber','simplicio reuse',d.cache_hit_pct,'green'),
+      card('memories',fmt(d.memories),'purple','simplicio memory',memPct,'purple'),
       card('runtimes',fmt((d.runtimes||[]).length),'green','covered adapters',100,'green'),
     ].join('');
 
@@ -456,7 +467,7 @@ HTML = _re.sub(r"__(?:FAVICON|STYLE|BODY|SCRIPT)__", lambda m: _SLOTS[m.group(0)
 
 def get_status():
     proxy_running = False
-    port = HEADROOM_PORT
+    port = PROXY_PORT
     uptime = "—"
     requests = 0
     tok_before = 0
@@ -494,7 +505,7 @@ def get_status():
     if proxy_running:
         uptime = _proxy_uptime()
 
-    mr = _run(["headroom", "memory", "stats"], timeout=5)
+    mr = _run(["headroom", "memory", "stats"], timeout=5)  # external accelerator binary (headroom-ai)
     mem = 0
     for hl in mr.stdout.split("\n"):
         if "Total Memories" in hl:
@@ -541,7 +552,9 @@ def _run(cmd, timeout=5):
 def _read_first_log():
     for log in LOG_CANDIDATES:
         if log.exists():
-            return log.read_text(errors="replace"), str(log)
+            text = log.read_text(errors="replace")
+            if text.strip():  # skip empty logs (e.g. a freshly-rotated proxy log)
+                return text, str(log)
     return "", ""
 
 
@@ -553,7 +566,7 @@ def _parse_int(value):
 
 
 def _proxy_uptime():
-    r = _run(["pgrep", "-f", "headroom proxy"], timeout=2)
+    r = _run(["pgrep", "-f", "headroom proxy"], timeout=2)  # external accelerator process
     pids = [pid for pid in r.stdout.strip().split("\n") if pid.strip()]
     if not pids:
         return "running"
@@ -613,7 +626,7 @@ def main():
     srv = http.server.HTTPServer(("127.0.0.1", port), Handler)
     with open(PID_FILE, "w") as f:
         f.write(str(os.getpid()))
-    print(f"⬡ headroom monitor · http://127.0.0.1:{port}")
+    print(f"⬡ Simplicio Token Monitor · http://127.0.0.1:{port}")
     print(f"   api: /api/status · refresh: 3s")
     try:
         srv.serve_forever()
