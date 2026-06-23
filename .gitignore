@@ -6,3 +6,6 @@ dist/
 *.db
 .serena/
 .agents/
+.playwright-cli/
+.playwright-mcp/
+output/
