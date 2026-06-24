@@ -51,8 +51,8 @@ cmd_status() {
   echo "⬡ Simplicio token-economy module"
   echo "─────────────────────────────────────────────"
   _up "$PROXY_PORT"   && echo "  ● capture proxy      :$PROXY_PORT  live"   || echo "  ○ capture proxy      :$PROXY_PORT  OFFLINE (run: simplicio-economy up)"
-  _up "$MONITOR_PORT" && echo "  ● token monitor      :$MONITOR_PORT  http://127.0.0.1:$MONITOR_PORT" || echo "  ○ token monitor      :$MONITOR_PORT  OFFLINE"
-  pgrep -f simplicio_tray.py >/dev/null 2>&1 && echo "  ● menu-bar tray      running" || echo "  ○ menu-bar tray      OFFLINE"
+  _up "$MONITOR_PORT" && echo "  ● token monitor      :$MONITOR_PORT  http://127.0.0.1:$MONITOR_PORT (open)" || echo "  ○ token monitor      on-demand — open: simplicio-economy monitor"
+  pgrep -f simplicio_tray.py >/dev/null 2>&1 && echo "  ● menu-bar tray      running" || echo "  ○ menu-bar tray      on-demand — open: simplicio-economy tray"
   if command -v simplicio-dev-cli >/dev/null 2>&1; then echo "  ● deterministic op   simplicio-dev-cli ready"; else echo "  ○ deterministic op   simplicio-dev-cli MISSING (pip install simplicio-cli)"; fi
   local an="✗" oa="✗"
   grep -qE "^export ANTHROPIC_BASE_URL=http://127.0.0.1:$PROXY_PORT" "$HOME/.zshrc" 2>/dev/null && an="✓"
@@ -67,17 +67,56 @@ cmd_status() {
 }
 
 cmd_up() {
-  echo "⬡ Bringing up the token-economy stack..."
-  for svc in ai.simplicio.proxy ai.simplicio.token-monitor ai.simplicio.tray; do
-    if launchctl print "gui/$UID_/$svc" >/dev/null 2>&1; then
-      launchctl kickstart "gui/$UID_/$svc" 2>/dev/null && echo "  → $svc kickstarted" || true
-    else
-      echo "  · $svc not registered — run scripts/setup_simplicio.sh first"
-    fi
-  done
+  # ONLY the capture proxy is always-on (the wired clients need it reachable). The dashboard and
+  # the menu-bar tray are on-demand — open them when you want with `monitor` / `tray`.
+  echo "⬡ Ensuring the capture proxy is up (always-on)..."
+  if launchctl print "gui/$UID_/ai.simplicio.proxy" >/dev/null 2>&1; then
+    launchctl kickstart "gui/$UID_/ai.simplicio.proxy" 2>/dev/null && echo "  → proxy kickstarted" || true
+  else
+    echo "  · proxy not registered — run scripts/setup_simplicio.sh first"
+  fi
   sleep 2
   echo ""
   cmd_status
+}
+
+cmd_monitor() {
+  # On-demand dashboard — start the server only if needed, then open the browser.
+  mkdir -p "$HOME/.simplicio/logs"
+  local url="http://127.0.0.1:$MONITOR_PORT"
+  if [ "${1:-}" = "stop" ]; then
+    pkill -f simplicio_dashboard.py 2>/dev/null && echo "⬡ Token Monitor dashboard stopped." || echo "⬡ dashboard was not running."
+    return
+  fi
+  if ! _up "$MONITOR_PORT"; then
+    PORT="$MONITOR_PORT" SIMPLICIO_PROXY_PORT="$PROXY_PORT" \
+      nohup python3 "$SCRIPT_DIR/../hooks/simplicio_dashboard.py" >"$HOME/.simplicio/logs/token-monitor.log" 2>&1 &
+    sleep 2
+  fi
+  if _up "$MONITOR_PORT"; then
+    echo "⬡ Token Monitor → $url"
+    command -v open >/dev/null 2>&1 && open "$url" 2>/dev/null \
+      || (command -v xdg-open >/dev/null 2>&1 && xdg-open "$url" 2>/dev/null) || true
+    echo "  close it any time:  simplicio-economy monitor stop"
+  else
+    echo "⬡ failed to start the dashboard — see ~/.simplicio/logs/token-monitor.log" >&2
+  fi
+}
+
+cmd_tray() {
+  # On-demand menu-bar tray.
+  mkdir -p "$HOME/.simplicio/logs"
+  if [ "${1:-}" = "stop" ]; then
+    pkill -f simplicio_tray.py 2>/dev/null && echo "⬡ Menu-bar tray stopped." || echo "⬡ tray was not running."
+    return
+  fi
+  if pgrep -f simplicio_tray.py >/dev/null 2>&1; then echo "⬡ tray already running."; return; fi
+  SIMPLICIO_PROXY_PORT="$PROXY_PORT" SIMPLICIO_MONITOR_PORT="$MONITOR_PORT" \
+    nohup python3 "$SCRIPT_DIR/../app/simplicio_tray.py" >"$HOME/.simplicio/logs/tray.log" 2>&1 &
+  sleep 2
+  pgrep -f simplicio_tray.py >/dev/null 2>&1 \
+    && { echo "⬡ Menu-bar tray started (live tokens in the menu bar)."; echo "  close it any time:  simplicio-economy tray stop"; } \
+    || echo "⬡ failed to start the tray — see ~/.simplicio/logs/tray.log" >&2
 }
 
 cmd_wire() {
@@ -156,8 +195,10 @@ cmd_capture() {
 case "${1:-status}" in
   status)  cmd_status ;;
   up)      cmd_up ;;
+  monitor) shift; cmd_monitor "$@" ;;
+  tray)    shift; cmd_tray "$@" ;;
   wire)    cmd_wire ;;
   unwire)  cmd_unwire ;;
   capture) shift; cmd_capture "$@" ;;
-  *) echo "Usage: $0 {status|up|wire|unwire|capture <openai|anthropic> [port]}" >&2; exit 1 ;;
+  *) echo "Usage: $0 {status|up|monitor [stop]|tray [stop]|wire|unwire|capture <openai|anthropic> [port]}" >&2; exit 1 ;;
 esac

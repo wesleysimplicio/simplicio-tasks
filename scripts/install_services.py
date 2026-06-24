@@ -44,6 +44,9 @@ PROXY = [PY, NATIVE_ENGINE, "proxy", "--port", PROXY_PORT, "--upstream", UPSTREA
 MONITOR = [PY, str(REPO / "hooks" / "simplicio_dashboard.py")]
 TRAY = [PY, str(REPO / "app" / "simplicio_tray.py")]
 SERVICES = {"proxy": PROXY, "token-monitor": MONITOR, "tray": TRAY}
+# ONLY the capture proxy auto-starts (the wired clients need it). The dashboard + tray are
+# on-demand (open with scripts/simplicio-economy.sh monitor / tray). uninstall still sweeps all 3.
+AUTOSTART = {"proxy": SERVICES["proxy"]}
 # SIMPLICIO_HOME is set explicitly so the proxy can always write savings/logs even when the
 # service runs with an unset/unwritable $HOME (verified necessary in the systemd field-test).
 ENVS = {"PORT": MONITOR_PORT, "SIMPLICIO_PROXY_PORT": PROXY_PORT, "SIMPLICIO_MONITOR_PORT": MONITOR_PORT,
@@ -72,12 +75,18 @@ def _systemd_unit(name, cmd):
 
 def linux_install():
     d = _systemd_dir()
-    for name, cmd in SERVICES.items():
+    # Sweep any leftover monitor/tray auto-start units from a previous install.
+    for name in SERVICES:
+        if name not in AUTOSTART:
+            subprocess.run(["systemctl", "--user", "disable", "--now", f"simplicio-{name}.service"], check=False)
+            (d / f"simplicio-{name}.service").unlink(missing_ok=True)
+    for name, cmd in AUTOSTART.items():
         (d / f"simplicio-{name}.service").write_text(_systemd_unit(name, cmd))
     subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
-    for name in SERVICES:
+    for name in AUTOSTART:
         subprocess.run(["systemctl", "--user", "enable", "--now", f"simplicio-{name}.service"], check=False)
-    print("✅ systemd --user services installed:", ", ".join(f"simplicio-{n}" for n in SERVICES))
+    print("✅ systemd --user: %s auto-starts. Dashboard/tray on-demand: scripts/simplicio-economy.sh monitor / tray"
+          % ", ".join(f"simplicio-{n}" for n in AUTOSTART))
 
 
 def linux_uninstall():
@@ -106,12 +115,15 @@ def _windows_bat(name, cmd):
 def windows_install():
     startup = _startup_dir()
     startup.mkdir(parents=True, exist_ok=True)
-    for name, cmd in SERVICES.items():
+    # Sweep any leftover monitor/tray auto-start launchers from a previous install.
+    for name in SERVICES:
+        if name not in AUTOSTART:
+            (startup / f"simplicio-{name}.bat").unlink(missing_ok=True)
+    for name, cmd in AUTOSTART.items():
         (startup / f"simplicio-{name}.bat").write_text(_windows_bat(name, cmd))
-    print("✅ Windows Startup launchers written to:", startup)
-    for name, cmd in SERVICES.items():
         subprocess.Popen([startup / f"simplicio-{name}.bat"], shell=True)  # start now
-    print("   (also launched now)")
+    print("✅ Windows Startup: %s auto-starts (also launched now). Dashboard/tray on-demand."
+          % ", ".join(f"simplicio-{n}" for n in AUTOSTART))
 
 
 def windows_uninstall():

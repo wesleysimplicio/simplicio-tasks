@@ -66,77 +66,14 @@ cat > "$LAUNCHD/$PROXY_SERVICE.plist" << EOF
 EOF
 echo "✅ $LAUNCHD/$PROXY_SERVICE.plist"
 
-# 4. Create launchd plist for the Simplicio Token Monitor
-echo "📋 Creating launchd plist for token monitor ($MONITOR_SERVICE)..."
-cat > "$LAUNCHD/$MONITOR_SERVICE.plist" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>$MONITOR_SERVICE</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/bin/python3</string>
-        <string>$SCRIPT_DIR/hooks/simplicio_dashboard.py</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>$HOME/.hermes/logs/simplicio-token-monitor.log</string>
-    <key>StandardErrorPath</key>
-    <string>$HOME/.hermes/logs/simplicio-token-monitor.error.log</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PORT</key>
-        <string>$DASH_PORT</string>
-        <key>SIMPLICIO_PROXY_PORT</key>
-        <string>$PORT</string>
-        <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin</string>
-    </dict>
-</dict>
-</plist>
-EOF
-echo "✅ $LAUNCHD/$MONITOR_SERVICE.plist"
-
-# 4b. Create launchd plist for the menu-bar tray app
-echo "📋 Creating launchd plist for menu-bar tray ($TRAY_SERVICE)..."
-cat > "$LAUNCHD/$TRAY_SERVICE.plist" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>$TRAY_SERVICE</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/bin/python3</string>
-        <string>$SCRIPT_DIR/app/simplicio_tray.py</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>$HOME/.hermes/logs/simplicio-tray.log</string>
-    <key>StandardErrorPath</key>
-    <string>$HOME/.hermes/logs/simplicio-tray.error.log</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>SIMPLICIO_PROXY_PORT</key>
-        <string>$PORT</string>
-        <key>SIMPLICIO_MONITOR_PORT</key>
-        <string>$DASH_PORT</string>
-        <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin</string>
-    </dict>
-</dict>
-</plist>
-EOF
-echo "✅ $LAUNCHD/$TRAY_SERVICE.plist"
+# 4. Token Monitor dashboard + menu-bar tray are ON-DEMAND (not auto-started). Open them only
+# when you want: `bash scripts/simplicio-economy.sh monitor` / `... tray`. Only the capture proxy
+# (above) stays always-on, because the wired clients need it reachable.
+# Remove any leftover auto-start plists from a previous install so they don't auto-launch at login.
+launchctl bootout "gui/$(id -u)/$MONITOR_SERVICE" 2>/dev/null || true
+launchctl bootout "gui/$(id -u)/$TRAY_SERVICE" 2>/dev/null || true
+rm -f "$LAUNCHD/$MONITOR_SERVICE.plist" "$LAUNCHD/$TRAY_SERVICE.plist" 2>/dev/null || true
+echo "✅ token monitor + tray: on-demand (open with simplicio-economy monitor / tray)"
 
 # 5. Add env vars to .zshrc (idempotent)
 echo "🔧 Configuring shell environment..."
@@ -164,10 +101,10 @@ if command -v hermes &>/dev/null; then
 fi
 
 # 7. Load services
-echo "🚀 Starting services..."
+echo "🚀 Starting the capture proxy (only always-on service)..."
 # Idempotent (re-install safe): bootout is async, so wait before bootstrap; if the service is
 # still loaded (bootstrap → I/O error), force-restart it with kickstart instead.
-for SVC in "$PROXY_SERVICE" "$MONITOR_SERVICE" "$TRAY_SERVICE"; do
+for SVC in "$PROXY_SERVICE"; do
   launchctl bootout "gui/$(id -u)/$SVC" 2>/dev/null || true
   sleep 1
   launchctl bootstrap "gui/$(id -u)" "$LAUNCHD/$SVC.plist" 2>/dev/null \
@@ -180,8 +117,8 @@ echo "════════════════════════�
 echo "  ✅ Simplicio Token Monitor setup complete"
 echo "═══════════════════════════════════════"
 echo "  Proxy:          http://127.0.0.1:$PORT"
-echo "  Token Monitor:  http://127.0.0.1:$DASH_PORT"
-echo "  Menu-bar tray:  live tokens saved (hexagon icon in the menu bar)"
+echo "  Token Monitor:  on-demand → bash scripts/simplicio-economy.sh monitor   (opens :$DASH_PORT)"
+echo "  Menu-bar tray:  on-demand → bash scripts/simplicio-economy.sh tray"
 echo "  Hermes:         → proxy → DeepSeek (auto-routed)"
 echo "───────────────────────────────────────"
 echo "  Optional MCP tools per client (memory/retrieve/stats — does NOT route traffic):"

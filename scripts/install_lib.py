@@ -274,13 +274,14 @@ def setup_monitor(enable):
         log("token monitor SKIPPED (--minimal). Enable later: bash scripts/setup_simplicio.sh")
         return
     py = sys.executable or "python3"
-    log("token monitor: capture proxy + dashboard :9090 + tray + always-capture wiring...")
+    log("token capture: always-on proxy + always-capture wiring (dashboard/tray are on-demand)...")
     if sys.platform == "darwin" and os.path.exists(setup_sh):
-        subprocess.run(["bash", setup_sh], check=False)   # registers launchd + wires + status
+        subprocess.run(["bash", setup_sh], check=False)   # registers the proxy (auto) + wires
     elif os.path.exists(svc):
         subprocess.run([py, svc, "install"], check=False)
         subprocess.run([py, svc, "wire"], check=False)
-    log("token monitor live -> http://127.0.0.1:9090  ·  Claude+Codex+Hermes measured (verify: bash scripts/simplicio-economy.sh status)")
+    log("capture proxy always-on · Claude+Codex+Hermes measured. Open the UI when you want:")
+    log("  dashboard: bash scripts/simplicio-economy.sh monitor   ·   tray: bash scripts/simplicio-economy.sh tray")
 
 
 def main():

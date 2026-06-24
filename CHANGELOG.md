@@ -5,6 +5,20 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.6.0] — 2026-06-24
+
+### Changed — dashboard + tray are ON-DEMAND (only the capture proxy is always-on)
+- **The Token Monitor dashboard and the menu-bar tray no longer auto-open or stay running.** Only the
+  **capture proxy** auto-starts (the wired clients need it reachable); it captures + measures in the
+  background. Open the UI only when you want:
+  - `bash scripts/simplicio-economy.sh monitor` — start the dashboard + open the browser · `monitor stop` to close.
+  - `bash scripts/simplicio-economy.sh tray` — start the menu-bar tray · `tray stop` to close.
+- **Installers updated**: `setup_simplicio.sh` (macOS launchd) now registers **only** the proxy and
+  removes any leftover monitor/tray auto-start plists; `install_services.py` (Linux systemd · Windows
+  Startup) auto-starts only the proxy via a new `AUTOSTART` set and sweeps old monitor/tray units;
+  `install_lib.py` prints the on-demand commands. README + `simplicio-economy.sh status` reflect the
+  new model (`status` shows the dashboard/tray as on-demand).
+
 ## [3.5.0] — 2026-06-24
 
 ### Changed — install is COMPLETE by default (everything is mandatory)
