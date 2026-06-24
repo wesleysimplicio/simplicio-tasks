@@ -525,6 +525,10 @@ def main(argv=None):
     pca.add_argument("rest", nargs=argparse.REMAINDER)
     pev = sub.add_parser("evals", help="compression eval + regression gate")
     pev.add_argument("rest", nargs=argparse.REMAINDER)
+    pse = sub.add_parser("semantic", help="reversible extractive (semantic-lite) compression of stdin")
+    pse.add_argument("rest", nargs=argparse.REMAINDER)
+    prg = sub.add_parser("rag", help="TF-IDF retrieval over the CCR memory store")
+    prg.add_argument("rest", nargs=argparse.REMAINDER)
 
     args = p.parse_args(argv)
     if args.cmd == "proxy":
@@ -552,6 +556,10 @@ def main(argv=None):
         return _exec_sibling("simplicio_capture.py", getattr(args, "rest", []))
     if args.cmd == "evals":
         return _exec_sibling("simplicio_evals.py", getattr(args, "rest", []))
+    if args.cmd == "semantic":
+        return _exec_sibling("simplicio_semantic.py", getattr(args, "rest", []))
+    if args.cmd == "rag":
+        return _exec_sibling("simplicio_rag.py", getattr(args, "rest", []))
     p.print_help()
     return 0
 

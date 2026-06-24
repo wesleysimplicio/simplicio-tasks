@@ -3,6 +3,26 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [2.7.0] — 2026-06-24
+
+### Added — semantic-lite compression + RAG (the honest take on the ML gap)
+- **`simplicio semantic`** (`engine/simplicio_semantic.py`) — **reversible extractive** compression for
+  large content: scores lines/sentences by TF-IDF + position + length, keeps the salient ones (always
+  keeps headers/ERROR lines), and elides the rest with a marker — the dropped bytes are retained so
+  `semantic_restore` reproduces the **byte-exact original** (lossless round-trip). Plus **SimHash**
+  near-duplicate block folding, and optional CCR integration (stash the restore blob in the memory
+  store, retrieve on demand). Verified: 121-line doc → 56.3% smaller, byte-exact restore.
+- **`simplicio rag`** (`engine/simplicio_rag.py`) — **TF-IDF cosine retrieval** over the CCR memory
+  store: `rag "<query>"` ranks stored memories by relevance with snippets; `rag remember <key> <text>`
+  populates it. Verified: relevant doc ranks #1 across queries.
+
+### Honest scope
+These are **deterministic** techniques — extractive summarization + SimHash + TF-IDF retrieval — **not**
+trained embedding/ONNX models. They address the "semantic compression" and "RAG" gaps with real,
+zero-dependency, reversible methods; they do not do abstractive rewriting or embedding-space matching.
+The trained-ONNX semantic model and embedding-vector RAG of the upstream remain out of scope (they
+require ML models, not stdlib code) — and are not faked.
+
 ## [2.6.0] — 2026-06-24
 
 ### Added — output token capture (input + output now complete)
