@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# setup_simplicio.sh — install + configure the Simplicio Token Monitor and compression proxy.
-# The proxy is powered by headroom-ai (a third-party accelerator Simplicio integrates); its
-# binary is still `headroom`, so install/run commands keep that name. Everything else is Simplicio.
-# Usage: bash scripts/setup_simplicio.sh [--port 8788] [--dashboard-port 9090]
+# setup_simplicio.sh — install + configure the Simplicio Token Monitor and capture proxy.
+# The capture proxy is the native Simplicio engine (engine/simplicio_engine.py) — self-contained,
+# stdlib only, no external dependency. Everything is Simplicio.
+# Usage: bash scripts/setup_simplicio.sh [--port 8788] [--dashboard-port 9090] [--upstream HOST]
 set -euo pipefail
 
 PORT="${2:-8788}"
@@ -17,23 +17,16 @@ TRAY_SERVICE="ai.simplicio.tray"
 echo "⬡ Simplicio Token Monitor setup — simplicio-loop"
 echo ""
 
-# 1. Install
-echo "📦 Installing capture engine + menu-bar app deps..."
-pip install headroom-ai httpx[http2] 2>&1 | tail -2
+# 1. Install (native engine is stdlib-only; only the optional menu-bar tray needs a dep)
+echo "📦 Installing menu-bar tray dep (optional)..."
 pip install --user rumps 2>&1 | tail -1 || echo "  (rumps optional — menu-bar tray needs it on macOS)"
 
-# 2. Verify proxy binary
-HEADROOM=$(which headroom 2>/dev/null || echo "")
-if [ -z "$HEADROOM" ]; then
-  HEADROOM=$(find ~/ -path "*/bin/headroom" -type f 2>/dev/null | head -1)
-fi
-if [ -z "$HEADROOM" ]; then
-  echo "❌ proxy binary not found after install"
-  exit 1
-fi
-echo "✅ proxy binary: $HEADROOM"
+# 2. Native capture engine (self-contained, no binary to install)
+UPSTREAM="${6:-https://api.deepseek.com}"
+ENGINE="$SCRIPT_DIR/engine/simplicio_engine.py"
+echo "✅ capture engine: $ENGINE (native)"
 
-# 3. Create launchd plist for the compression proxy
+# 3. Create launchd plist for the capture proxy
 echo "📋 Creating launchd plist for proxy ($PROXY_SERVICE)..."
 mkdir -p "$LAUNCHD"
 cat > "$LAUNCHD/$PROXY_SERVICE.plist" << EOF
@@ -45,12 +38,13 @@ cat > "$LAUNCHD/$PROXY_SERVICE.plist" << EOF
     <string>$PROXY_SERVICE</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$HEADROOM</string>
+        <string>/usr/bin/python3</string>
+        <string>$ENGINE</string>
         <string>proxy</string>
         <string>--port</string>
         <string>$PORT</string>
-        <string>--openai-api-url</string>
-        <string>https://api.deepseek.com/v1</string>
+        <string>--upstream</string>
+        <string>$UPSTREAM</string>
         <string>--host</string>
         <string>127.0.0.1</string>
     </array>

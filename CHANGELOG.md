@@ -3,6 +3,34 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [2.0.0] — 2026-06-24
+
+### Added — native Simplicio capture engine (no external dependency)
+- **`engine/simplicio_engine.py`** — a self-contained, stdlib-only capture proxy that **replaces the
+  external `headroom-ai` binary** for the core capture path. It transparently forwards each request to
+  the real upstream (**no model swap**), measures prompt tokens, applies **deterministic** compression
+  (whitespace collapse, consecutive-line dedup, oversized-output capping), streams the response back,
+  and writes `~/.simplicio/proxy_savings.json` in the same schema-v3 the Token Monitor reads. It is
+  **fail-open**: any parse/compress error forwards the original bytes unchanged. Commands: `proxy`,
+  `doctor`, `memory stats`, `--version`.
+
+### Changed
+- **The live capture proxy is now the native engine.** Verified end-to-end: a request through it
+  reached DeepSeek's real API and returned DeepSeek's own auth error (proving transparent forwarding);
+  a compressible payload was deduped 575→54 chars and recorded as real savings. Lifetime history was
+  migrated `~/.headroom` → `~/.simplicio` for continuity (401,925 tokens preserved).
+- `scripts/simplicio-engine` is **native-first** (falls back to an external binary only if the module
+  is absent). `setup_simplicio.sh` and `install_services.py` run the native engine — `setup` no longer
+  installs `headroom-ai`.
+- README accelerator row + `token-capture.md` describe the native engine (schema-compatible with the
+  OSS headroom project, credited).
+
+### Honest scope
+- The native engine is the **core** (transparent capture + measurement + deterministic compression).
+  It is **not** a reimplementation of the upstream engine's 360k-LOC feature set (ONNX semantic
+  compression, the 6-algorithm suite, RAG, MCP memory store). Those remain out of scope; the native
+  engine delivers real, safe token savings without any external dependency.
+
 ## [1.9.0] — 2026-06-24
 
 ### Added

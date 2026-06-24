@@ -1,8 +1,9 @@
 # Token capture — how Simplicio really intercepts tokens
 
 The **Simplicio Token Monitor** (`hooks/simplicio_dashboard.py`, `:9090`) only *displays* numbers.
-The actual capture is done by the **Simplicio capture proxy** — a local HTTP server (powered by the
-open-source `headroom-ai` engine) that sits between a runtime and its LLM provider. Every request
+The actual capture is done by the **Simplicio capture proxy** — the native, self-contained engine
+`engine/simplicio_engine.py` (stdlib only, fail-open), a local HTTP server that sits transparently
+between a runtime and its LLM provider (forwarding to the real upstream, no model swap). Every request
 that flows through it is logged with `tok_before` / `tok_after` / `tok_saved` and written to
 `proxy_savings.json` (lifetime totals + per-request `history`). No proxy in the path → no capture.
 

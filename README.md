@@ -93,7 +93,7 @@ covers 100%. Accelerators are **auto-detected** — present = used, absent = LLM
 | 7 | 🧭 **Understand Anything** | [Egonex-AI](https://github.com/Egonex-AI/Understand-Anything) | Knowledge graph orient: semantic search, guided tours, dependency graph | **L0 zero tokens** |
 | 8 | 📊 **agentsview** | [kenn-io](https://github.com/kenn-io/agentsview) | Session analytics, cost tracking, stalled-session discovery | **L1** SQL only |
 | 9 | ⚡ **LMCache** | [LMCache](https://github.com/LMCache/LMCache) | KV cache between loop turns — 40-70% TTFT reduction on local models | GPU time ↓ |
-| 10 | 🗜️ **Headroom** | [chopratejas](https://github.com/chopratejas/headroom) | Transparent compression proxy + MCP server, 6 algorithms, cross-agent memory | **60-95% fewer** |
+| 10 | 🗜️ **Simplicio capture engine** | `engine/simplicio_engine.py` (native, stdlib-only; savings-schema compatible with the OSS [headroom](https://github.com/headroomlabs-ai/headroom) project) | Transparent capture proxy: forwards to the real provider, measures + deterministically compresses, writes `proxy_savings.json` | **deterministic** |
 
 Each skill lives under [`.claude/skills/`](.claude/skills); each accelerator has a reference doc
 under `.claude/skills/simplicio-tasks/references/`.

@@ -28,27 +28,19 @@ HOME = Path.home()
 PY = sys.executable or shutil.which("python3") or "python3"
 PROXY_PORT = os.environ.get("SIMPLICIO_PROXY_PORT", "8788")
 MONITOR_PORT = os.environ.get("SIMPLICIO_MONITOR_PORT", "9090")
-OPENAI_URL = os.environ.get("SIMPLICIO_PROXY_UPSTREAM", "https://api.deepseek.com/v1")
+# Native engine forwards to the upstream HOST (it appends the request path itself).
+UPSTREAM = os.environ.get("SIMPLICIO_PROXY_UPSTREAM", "https://api.deepseek.com")
+
+# The native Simplicio capture engine — self-contained, no external binary.
+NATIVE_ENGINE = str(REPO / "engine" / "simplicio_engine.py")
 
 
 def engine_bin():
-    """Resolve the capture-engine binary cross-platform (no full-home scan)."""
-    exe = "headroom.exe" if os.name == "nt" else "headroom"
-    found = shutil.which(exe)
-    if found:
-        return found
-    cands = [
-        HOME / "Projetos" / "ai" / "hermes-agent" / "venv" / ("Scripts" if os.name == "nt" else "bin") / exe,
-        HOME / ".local" / "bin" / exe,
-        HOME / "AppData" / "Roaming" / "Python" / "Scripts" / exe,
-    ]
-    for c in cands:
-        if c.exists():
-            return str(c)
-    return exe  # last resort: rely on PATH at runtime
+    """The capture engine entrypoint (native module via the current Python)."""
+    return NATIVE_ENGINE
 
 
-PROXY = [engine_bin(), "proxy", "--port", PROXY_PORT, "--openai-api-url", OPENAI_URL, "--host", "127.0.0.1"]
+PROXY = [PY, NATIVE_ENGINE, "proxy", "--port", PROXY_PORT, "--upstream", UPSTREAM, "--host", "127.0.0.1"]
 MONITOR = [PY, str(REPO / "hooks" / "simplicio_dashboard.py")]
 TRAY = [PY, str(REPO / "app" / "simplicio_tray.py")]
 SERVICES = {"proxy": PROXY, "token-monitor": MONITOR, "tray": TRAY}
