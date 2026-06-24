@@ -195,6 +195,12 @@ echo "  (init forwards each client to its OWN provider — see"
 echo "   .claude/skills/simplicio-tasks/references/token-capture.md)"
 echo "═══════════════════════════════════════"
 echo ""
+# Turn on always-capture: route OpenAI-compatible clients through the capture proxy
+# (same upstream, now intercepted). This is the "works after install without using the loop" step.
+echo "🔌 Enabling always-capture (OpenAI-compatible clients → capture proxy)..."
+bash "$SCRIPT_DIR/scripts/simplicio-economy.sh" wire 2>/dev/null || \
+  echo "  (run 'bash scripts/simplicio-economy.sh wire' to enable always-capture)"
+echo ""
 # Token-economy module is now active — show the integrated stack status.
 bash "$SCRIPT_DIR/scripts/simplicio-economy.sh" status 2>/dev/null || true
 echo ""

@@ -3,6 +3,23 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [1.7.0] — 2026-06-23
+
+### Added
+- **Always-capture wiring (`simplicio-economy wire` / `unwire`).** Routes OpenAI-compatible
+  clients (Codex, Cursor, OpenCode, any `OPENAI_BASE_URL` tool) through the local capture proxy —
+  the **same upstream they already use, now intercepted + compressed**, with no model swap. This is
+  the "works after install without invoking simplicio-loop" switch: once wired, every call is
+  captured on the next shell/tool launch. Idempotent; backs up `~/.zshrc`; fully reversible via
+  `unwire`. `setup_simplicio.sh` runs it so a fresh install turns capture on. `status` reports the
+  wire state.
+
+### Notes
+- Activating always-capture rewrites `OPENAI_BASE_URL` in `~/.zshrc` (high blast radius across all
+  OpenAI-compatible tools). That is intentional and what the install does on the user's behalf; an
+  assistant running mid-session is (correctly) gated by the permission guard and must let the user
+  run `simplicio-economy wire` themselves.
+
 ## [1.6.0] — 2026-06-23
 
 ### Added
