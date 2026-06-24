@@ -21,7 +21,7 @@
   <a href="#-11-runtimes-one-protocol">11 Runtimes</a> ·
   <a href="#-the-loop">The Loop</a> ·
   <a href="#-token-economy">Token Economy</a> ·
-  <a href="#-recent-activity">Recent Activity</a> ·
+  <a href="#-token-economy">Capture Engine</a> ·
   <a href="#-install--use">Install</a>
 </p>
 
@@ -271,6 +271,47 @@ A live, always-on view of the savings:
 Install registers all three as auto-start services (macOS launchd · Linux systemd · Windows Startup) via
 `scripts/setup_simplicio.sh`, or the cross-platform `python3 scripts/install_services.py install`. After
 install the monitor + capture run **without invoking the loop** — see `references/token-capture.md`.
+
+### 🛠️ The capture engine — one native module, every command
+
+[`engine/simplicio_engine.py`](engine/simplicio_engine.py) is the native Simplicio capture engine
+(stdlib-only, fail-open) — a **full reimplementation of the upstream
+[headroom](https://github.com/headroomlabs-ai/headroom) surface with no external dependency**. Run any
+command via the [`scripts/simplicio-engine`](scripts/simplicio-engine) wrapper (e.g. `simplicio-engine doctor`):
+
+| Command | What it does |
+|---|---|
+| `proxy` | the transparent capture proxy — routes each model to its **real** provider, compresses + measures + caches (no model swap) |
+| `doctor` | proxy reachability + lifetime savings |
+| `cache` | native response cache (`stats`/`clear`) — a repeated deterministic request is served from cache, skipping the LLM call |
+| `signatures` | signatures-only view of a source file (bodies stripped, ~93% fewer tokens to read code) |
+| `semantic` | reversible extractive (semantic-lite) compression |
+| `kompress` | **ONNX** semantic token-pruning via the real `kompress-v2-base` model |
+| `detect` | content-type detection + smart per-block routing |
+| `rag` | TF-IDF (or `--ml` embedding) retrieval over the CCR memory store |
+| `memory` | CCR compress-cache-retrieve store (`remember`/`recall`/`forget`/`list`/`stats`) |
+| `mcp` | native stdio MCP server (compress / retrieve / stats tools) |
+| `init` / `wrap` | register Simplicio into a client (Claude / Codex / Copilot / OpenClaw) · run a client with capture routing |
+| `report` / `audit` / `capture` / `evals` | savings report · audit a tree for compression opportunity · dry-run a request · compression regression gate |
+
+### 🧠 Optional real ML models — `pip install "simplicio-loop[onnx]"`
+
+Four **real**, public (Apache-2.0) ONNX models run natively — the same models the upstream uses.
+Without the extra, the deterministic stdlib path covers everything; models download on first use.
+
+| Model | Command | Use |
+|---|---|---|
+| `kompress-v2-base` | `simplicio kompress` | semantic token pruning |
+| `technique-router-onnx` | `simplicio router` | technique routing |
+| `all-MiniLM-L6-v2-onnx` | `simplicio embed` · `rag --ml` | embeddings + semantic RAG |
+| `siglip-image-encoder-onnx` | `simplicio image` | image-compression content verifier |
+
+### ⚙️ Native Rust performance core (optional)
+
+[`rust/`](rust) ships four crates ported + rebranded from the upstream (Apache-2.0; `NOTICE` credits it):
+`simplicio-core` (compressors + smart-crusher), `simplicio-py` (PyO3 bindings), `simplicio-proxy`
+(axum reverse proxy), `simplicio-parity` (Rust↔Python parity harness). Build with `maturin` — the Python
+engine works fully without them; the crates only add native speed.
 
 |---
 
