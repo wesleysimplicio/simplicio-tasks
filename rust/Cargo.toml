@@ -1,0 +1,55 @@
+[workspace]
+resolver = "2"
+members = [
+    "simplicio-core",
+    "simplicio-py",
+]
+# simplicio-py is a Python extension module — build it via maturin, not plain
+# cargo (the "extension-module" feature tells pyo3 not to link libpython,
+# required for `import` to work). `cargo build --workspace` without explicit
+# members skips it; `cargo test --workspace` still runs its tests because pyo3
+# can dynamically link here for the cdylib used by tests.
+default-members = [
+    "simplicio-core",
+]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.80"
+license = "Apache-2.0"
+repository = "https://github.com/wesleysimplicio/simplicio-loop"
+authors = ["Simplicio Maintainers"]
+
+# Vendored + rebranded from headroom (Apache-2.0):
+# https://github.com/headroomlabs-ai/headroom — see ./NOTICE.
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+# `preserve_order` makes serde_json Objects use IndexMap so JSON parse order is
+# preserved through Value→string→Value round-trips (matches Python str(dict)).
+# `arbitrary_precision` keeps literal numeric tokens intact (byte-faithful
+# passthrough). `raw_value` exposes RawValue for exact byte forwarding.
+serde_json = { version = "1", features = ["preserve_order", "arbitrary_precision", "raw_value"] }
+bytes = "1"
+thiserror = "1"
+# `log` compat: inside the cdylib there is no tracing subscriber, so events are
+# re-emitted as `log` records for pyo3-log to forward into Python logging.
+tracing = { version = "0.1", features = ["log"] }
+pyo3 = { version = "0.24", features = ["abi3-py310"] }
+pyo3-log = "0.12"
+
+# ── Release profile — wheel size optimization ───────────────────────
+[profile.release]
+strip = "symbols"
+lto = "thin"
+codegen-units = 1
+
+# Fast-to-compile CI profile (lto-free, parallel codegen). Used via
+# `maturin build --profile ci`. Does NOT affect `--release`.
+[profile.ci]
+inherits = "release"
+lto = false
+codegen-units = 256
+opt-level = 1
+strip = "none"
+debug = false
+incremental = false

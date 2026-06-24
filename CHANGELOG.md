@@ -3,6 +3,29 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [3.0.0] — 2026-06-24
+
+### Added — the native Rust performance core, built for real (the last literal piece)
+- **`rust/simplicio-core` + `rust/simplicio-py`** — the upstream headroom Rust crates
+  (`headroom-core` + the PyO3 bindings `headroom-py`), **vendored and rebranded** headroom→simplicio
+  (~70 source files: smart_crusher, diff/log/search compressors, tokenizer, relevance, CCR, content
+  detection), Apache-2.0 with `NOTICE` crediting upstream. The rebrand is baked into the compiled
+  binary, not cosmetic (`hello()` → `simplicio-core`, tag sentinel `{{SIMPLICIO_TAG_…}}`, env
+  `SIMPLICIO_*`).
+- **It builds and runs.** `maturin build --release` produced a real wheel
+  (`simplicio_core-…-abi3-…arm64.whl`); `import simplicio._core` works and real functions run
+  (`LogCompressor` 5700→566 bytes, `SmartCrusher`, `DiffCompressor`, `detect_content_type` via magika).
+  **843 Rust tests pass.** Built with rustc/cargo 1.95.0 + maturin 1.14.1.
+
+### Milestone — the headroom port is complete (capability + the native layer)
+Every subsystem of the upstream headroom repository is now in Simplicio: the full Python functional
+surface (deterministic + extractive compression, the **four real ONNX models** kompress /
+technique-router / MiniLM embedder / SigLIP image, content detection + smart routing, RAG, input+output
+capture, per-provider routing, MCP, CCR memory, init/wrap/report/verify/audit/capture/evals, copilot
+OAuth) **and** the native Rust performance core. headroom→simplicio: done. (Skipped only `headroom-proxy`
+— a Rust axum passthrough that duplicates the working Python proxy — and `headroom-parity` — a test
+harness; both are non-capability.)
+
 ## [2.12.0] — 2026-06-24
 
 ### Added — Copilot OAuth (the last functional subsystem)
