@@ -491,6 +491,29 @@ def cmd_memory(args):
 
 
 def main(argv=None):
+    # Raw verbatim passthrough for sibling-backed commands — preserves `--flag value` order
+    # (argparse REMAINDER mangles a leading flag). proxy/doctor/--version use argparse below.
+    raw = list(sys.argv[1:] if argv is None else argv)
+    _PASS = {"init": "simplicio_init.py", "wrap": "simplicio_wrap.py", "report": "simplicio_report.py",
+             "verify": "simplicio_verify.py", "audit": "simplicio_audit.py", "capture": "simplicio_capture.py",
+             "evals": "simplicio_evals.py", "kompress": "simplicio_kompress.py"}
+    if raw:
+        cmd, rest = raw[0], raw[1:]
+        if cmd == "memory" and rest and rest[0] != "stats":
+            return _exec_sibling("simplicio_memory.py", rest)
+        if cmd == "mcp":
+            return _exec_sibling("simplicio_mcp.py", [])  # MCP server reads stdin; ignore extra args
+        if cmd in _PASS:
+            return _exec_sibling(_PASS[cmd], rest)
+        if cmd == "semantic":
+            if "--ml" in rest:
+                return _exec_sibling("simplicio_semantic_ml.py", ["compress"] + [a for a in rest if a != "--ml"])
+            return _exec_sibling("simplicio_semantic.py", rest)
+        if cmd == "rag":
+            if "--ml" in rest:
+                return _exec_sibling("simplicio_semantic_ml.py", ["search"] + [a for a in rest if a != "--ml"])
+            return _exec_sibling("simplicio_rag.py", rest)
+
     p = argparse.ArgumentParser(prog="simplicio_engine", description="Simplicio capture engine")
     p.add_argument("--version", action="version", version=f"simplicio-engine {__version__}")
     sub = p.add_subparsers(dest="cmd")
@@ -529,6 +552,8 @@ def main(argv=None):
     pse.add_argument("rest", nargs=argparse.REMAINDER)
     prg = sub.add_parser("rag", help="TF-IDF retrieval over the CCR memory store")
     prg.add_argument("rest", nargs=argparse.REMAINDER)
+    pko = sub.add_parser("kompress", help="ONNX semantic token-pruning via the real kompress-v2-base model")
+    pko.add_argument("rest", nargs=argparse.REMAINDER)
 
     # parse_known_args so leading passthrough flags (e.g. `semantic --ml`) reach the sibling
     args, _extra = p.parse_known_args(argv)
@@ -568,6 +593,8 @@ def main(argv=None):
         if "--ml" in rest:
             return _exec_sibling("simplicio_semantic_ml.py", ["search"] + [a for a in rest if a != "--ml"])
         return _exec_sibling("simplicio_rag.py", rest)
+    if args.cmd == "kompress":
+        return _exec_sibling("simplicio_kompress.py", _rest)
     p.print_help()
     return 0
 

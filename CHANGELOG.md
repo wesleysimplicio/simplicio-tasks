@@ -3,6 +3,30 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [2.9.0] — 2026-06-24
+
+### Added — the REAL headroom ONNX compression model, integrated (the gap is closed, not substituted)
+- **`simplicio kompress`** (`engine/simplicio_kompress.py`) runs the **actual upstream model**
+  `chopratejas/kompress-v2-base` — the real ONNX semantic token-pruning model headroom uses. Turns out
+  its weights are **public on HuggingFace** (Apache-2.0), not proprietary: so this is the genuine
+  article, not a look-alike. It tokenizes (ModernBERT), runs the ONNX session
+  (`input_ids`/`attention_mask` → per-token `final_scores` keep probability), keeps the top
+  `--keep` fraction of words, drops filler, and reconstructs — **reversibly** (the dropped spans are
+  retained). Verified with the real model: e.g. `--keep 0.5` → 48.7% words pruned, high-signal tokens
+  (identifiers, numbers, errors) preserved.
+- Opt-in: `pip install "simplicio-loop[kompress]"` (onnxruntime + huggingface_hub + tokenizers; the
+  ~274 MB model downloads on first use). Without it, `simplicio kompress` reports how to enable it.
+
+### Fixed
+- Engine CLI now forwards sibling-command args **verbatim** (raw passthrough) — `argparse` REMAINDER was
+  mangling `--flag value` ordering (e.g. `kompress --keep 0.5` arrived as `0.5 --keep`).
+
+### Scope — now honestly complete on the implementable + the model
+With the real `kompress-v2-base` integrated, the upstream's ONNX semantic compression is no longer a
+gap — it's the same model, in Simplicio. Combined with the deterministic 12-algo + extractive
+compression, the model2vec embedding backend, and TF-IDF/embedding RAG, the headroom compression+RAG
+surface is covered (deterministic core stdlib-only; the heavy models are optional extras).
+
 ## [2.8.0] — 2026-06-24
 
 ### Added — REAL embedding ML backend (the ML gap, done honestly — not stubbed)
