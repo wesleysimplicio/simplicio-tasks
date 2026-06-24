@@ -530,36 +530,44 @@ def main(argv=None):
     prg = sub.add_parser("rag", help="TF-IDF retrieval over the CCR memory store")
     prg.add_argument("rest", nargs=argparse.REMAINDER)
 
-    args = p.parse_args(argv)
+    # parse_known_args so leading passthrough flags (e.g. `semantic --ml`) reach the sibling
+    args, _extra = p.parse_known_args(argv)
+    _rest = list(getattr(args, "rest", []) or []) + _extra
     if args.cmd == "proxy":
         return cmd_proxy(args)
     if args.cmd == "doctor":
         return cmd_doctor(args)
     if args.cmd == "memory":
-        rest = getattr(args, "rest", [])
+        rest = _rest
         if not rest or rest[0] == "stats":
             return cmd_memory(args)  # engine history count — keeps the dashboard's "Total Memories:" parse
         return _exec_sibling("simplicio_memory.py", rest)
     if args.cmd == "mcp":
         return _exec_sibling("simplicio_mcp.py", [])  # the MCP server reads stdin; ignore 'serve'
     if args.cmd == "init":
-        return _exec_sibling("simplicio_init.py", getattr(args, "rest", []))
+        return _exec_sibling("simplicio_init.py", _rest)
     if args.cmd == "wrap":
-        return _exec_sibling("simplicio_wrap.py", getattr(args, "rest", []))
+        return _exec_sibling("simplicio_wrap.py", _rest)
     if args.cmd == "report":
-        return _exec_sibling("simplicio_report.py", getattr(args, "rest", []))
+        return _exec_sibling("simplicio_report.py", _rest)
     if args.cmd == "verify":
-        return _exec_sibling("simplicio_verify.py", getattr(args, "rest", []))
+        return _exec_sibling("simplicio_verify.py", _rest)
     if args.cmd == "audit":
-        return _exec_sibling("simplicio_audit.py", getattr(args, "rest", []))
+        return _exec_sibling("simplicio_audit.py", _rest)
     if args.cmd == "capture":
-        return _exec_sibling("simplicio_capture.py", getattr(args, "rest", []))
+        return _exec_sibling("simplicio_capture.py", _rest)
     if args.cmd == "evals":
-        return _exec_sibling("simplicio_evals.py", getattr(args, "rest", []))
+        return _exec_sibling("simplicio_evals.py", _rest)
     if args.cmd == "semantic":
-        return _exec_sibling("simplicio_semantic.py", getattr(args, "rest", []))
+        rest = _rest
+        if "--ml" in rest:  # real embedding backend (optional model2vec dep)
+            return _exec_sibling("simplicio_semantic_ml.py", ["compress"] + [a for a in rest if a != "--ml"])
+        return _exec_sibling("simplicio_semantic.py", rest)
     if args.cmd == "rag":
-        return _exec_sibling("simplicio_rag.py", getattr(args, "rest", []))
+        rest = _rest
+        if "--ml" in rest:
+            return _exec_sibling("simplicio_semantic_ml.py", ["search"] + [a for a in rest if a != "--ml"])
+        return _exec_sibling("simplicio_rag.py", rest)
     p.print_help()
     return 0
 

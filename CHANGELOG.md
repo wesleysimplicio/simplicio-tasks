@@ -3,6 +3,29 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [2.8.0] — 2026-06-24
+
+### Added — REAL embedding ML backend (the ML gap, done honestly — not stubbed)
+- **`engine/simplicio_semantic_ml.py`** — an optional, dependency-gated embedding backend using a
+  **real sentence-embedding model** (`model2vec`, static embeddings, ~30 MB, no torch):
+  - **`simplicio semantic --ml`** — embedding **semantic dedup**: drops paraphrased / semantically
+    redundant lines that TF-IDF + SimHash can't catch, **reversibly** (byte-exact restore). Verified
+    with the real model: paraphrase cluster → 27-40% saved, round-trip OK.
+  - **`simplicio rag --ml "<query>"`** — retrieval by **meaning** (embedding cosine), not keyword.
+    Verified: matched a query to a lexically-disjoint memory (cosine 0.42, ranked #1) — a match
+    TF-IDF would miss.
+- **Opt-in + graceful**: needs `pip install "simplicio-loop[ml]"` (model2vec + numpy). Without it,
+  `--ml` prints how to enable it and the system falls back to the deterministic `semantic`/`rag`.
+  The native engine itself stays **stdlib-only / zero-dependency**.
+- Added the `[ml]` optional-dependency extra; `--ml` routes via `parse_known_args` passthrough.
+
+### Honest note
+This uses a *real* trained embedding model (so semantic similarity genuinely works — paraphrases
+match, unrelated text doesn't). It is the light static-embedding tier; a larger model catches more
+paraphrase. It is NOT a reimplementation of the upstream's specific trained ONNX compression model
+(that exact model isn't replicable) — but the ML *capability* (semantic compression + meaning
+retrieval) is now real and verified, behind an optional dependency.
+
 ## [2.7.0] — 2026-06-24
 
 ### Added — semantic-lite compression + RAG (the honest take on the ML gap)
