@@ -423,3 +423,12 @@ gate + secret-scan on. With `ceiling = 0` the watcher refuses to run unattended 
 ## 📄 License
 
 MIT
+
+## 💳 Pricing
+
+The engine is **free and MIT** — fully self-hostable, never crippled. A proposed **open-core
+hosted tier** (managed 24/7 watcher, hosted operators, retained savings dashboard, distributed
+`video_evidence` render) is sketched in [`PRICING.md`](PRICING.md), along with a deterministic,
+privacy-preserving billing architecture built on the metering primitives the loop already
+produces (`loop-budget.json` kill-switch + `savings_ledger`). It is a proposal — nothing is billed
+today.
