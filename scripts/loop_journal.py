@@ -28,6 +28,8 @@ Verbs:
               current stall count + the live error fingerprint. Print THIS at the top of each turn
               so the loop never retries a known dead-end.
   status      Compact tail of the journal (last N records).
+  since       Incremental triage: the delta (git diff --stat + working tree) since the last
+              recorded turn's commit — so a turn reads only what changed, not a full re-scan.
   selftest    Prove the fingerprint + stall logic deterministically — no files.
 
 Usage:
@@ -109,6 +111,20 @@ def _now():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _git(args):
+    import subprocess
+    try:
+        r = subprocess.run(["git"] + args, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", cwd=REPO)
+        return r.stdout.strip() if r.returncode == 0 else None
+    except FileNotFoundError:
+        return None
+
+
+def _git_head():
+    return _git(["rev-parse", "HEAD"]) or ""
+
+
 def _load():
     rows = []
     if not os.path.exists(JOURNAL):
@@ -138,6 +154,7 @@ def cmd_record(opts):
         "gate": gate,
         "fingerprint": fp,
         "note": opts.get("note", ""),
+        "commit": opts.get("_commit") or _git_head(),  # for incremental triage (`since`)
         "ts": opts.get("_now") or _now(),
     }
     with open(JOURNAL, "a", encoding="utf-8") as f:
@@ -252,6 +269,36 @@ def cmd_status(opts):
             (r.get("action") or "")[:56]))
 
 
+def cmd_since(opts):
+    """Incremental triage: show ONLY the delta since the last recorded turn, not a full re-scan.
+
+    The last journal record stamped the HEAD commit; `since` diffs that commit → now plus the
+    working-tree changes. A turn reads this instead of re-surveying the whole tree every time.
+    """
+    rows = _load()
+    base = ""
+    for r in reversed(rows):
+        if r.get("commit"):
+            base = r["commit"]
+            break
+    if not base:
+        print("since: no prior commit recorded — full working-tree state:")
+        print(_git(["status", "--short"]) or "  (git unavailable)")
+        return
+    print("since: delta vs last recorded turn (%s):" % base[:12])
+    stat = _git(["diff", "--stat", "%s..HEAD" % base])
+    if stat:
+        for ln in stat.splitlines():
+            log(ln)
+    wt = _git(["status", "--short"])
+    if wt:
+        log("working tree:")
+        for ln in wt.splitlines():
+            log("  " + ln)
+    if not stat and not wt:
+        log("no change since last turn — triage can skip a full re-scan")
+
+
 def cmd_selftest(_opts):
     checks = []
 
@@ -317,9 +364,10 @@ def main():
         sys.exit(2)
     sub, opts = argv[0], _parse(argv[1:])
     {"record": cmd_record, "fingerprint": cmd_fingerprint, "stall": cmd_stall,
-     "resume": cmd_resume, "status": cmd_status, "selftest": cmd_selftest}.get(
+     "resume": cmd_resume, "status": cmd_status, "since": cmd_since,
+     "selftest": cmd_selftest}.get(
         sub, lambda _o: (print("unknown command '%s'. choices: record fingerprint stall resume "
-                               "status selftest" % sub), sys.exit(2)))(opts)
+                               "status since selftest" % sub), sys.exit(2)))(opts)
 
 
 if __name__ == "__main__":

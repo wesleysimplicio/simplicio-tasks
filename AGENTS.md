@@ -72,7 +72,8 @@ path + verdict; a missing toolchain BLOCKS, never a fake pass.
 
 - Run commands for real — never simulate output.
 - Never mark an item done without green gates + evidence ("works, not just compiles").
-- Secret-scan every diff; route irreversible ops through the human gate.
+- Secret-scan every diff; route irreversible ops through the human gate. Where hooks exist this is
+  ENFORCED fail-closed by `hooks/action_gate.py` (PreToolUse/pre-push) — not left to the model.
 - Unattended 24/7 runs require a cost kill-switch (`ceiling > 0`).
 - Report token-savings ONLY when a measured receipt backs it (clamp / signatures-read / cache hit /
   `deterministic_edit` / `savings_ledger`); never fabricate a figure. No measured economy → no

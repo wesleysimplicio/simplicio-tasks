@@ -35,15 +35,16 @@ REPO = os.path.dirname(HERE)
 DOC_GLOBS = ["README.md", "AGENTS.md", "CLAUDE.md", "INSTALL.md", "PYPI.md"]
 DOC_DIRS = [os.path.join(".claude", "skills")]
 
-SCRIPT_RE = re.compile(r"scripts/([a-zA-Z0-9_]+\.py)")
+SCRIPT_RE = re.compile(r"((?:scripts|hooks)/[a-zA-Z0-9_]+\.py)")
 # "44 extension points", "the 44 named binding points", "44 named points", badge "...points-44-..."
 COUNT_RES = [
     re.compile(r"\b(\d{1,3})\s+extension points", re.I),
     re.compile(r"\b(\d{1,3})\s+named (?:binding )?points", re.I),
     re.compile(r"extension%20points-(\d{1,3})-"),
 ]
-# worker scripts whose `selftest` proves them; others just need to be invokable
-SELFTEST_SCRIPTS = ["loop_journal.py", "billing_aggregator.py", "savings_harness.py"]
+# worker/hook scripts whose `selftest` proves them; others just need to be invokable
+SELFTEST_SCRIPTS = ["scripts/loop_journal.py", "scripts/billing_aggregator.py",
+                    "scripts/savings_harness.py", "hooks/action_gate.py"]
 
 
 def _docs():
@@ -62,9 +63,9 @@ def _read(p):
 def check_scripts_exist():
     missing = {}
     for doc in _docs():
-        for m in SCRIPT_RE.findall(_read(doc)):
-            if not os.path.exists(os.path.join(REPO, "scripts", m)):
-                missing.setdefault(m, []).append(os.path.relpath(doc, REPO))
+        for rel in SCRIPT_RE.findall(_read(doc)):
+            if not os.path.exists(os.path.join(REPO, rel)):
+                missing.setdefault(rel, []).append(os.path.relpath(doc, REPO))
     ok = not missing
     return ok, ("all referenced scripts exist" if ok else
                 "missing scripts: %s" % json.dumps(missing))
@@ -88,49 +89,59 @@ def check_extension_count():
 
 def check_commands_run():
     failures = []
-    for name in SELFTEST_SCRIPTS:
-        path = os.path.join(REPO, "scripts", name)
+    for rel in SELFTEST_SCRIPTS:
+        path = os.path.join(REPO, rel)
         if not os.path.exists(path):
-            failures.append("%s: not found" % name)
+            failures.append("%s: not found" % rel)
             continue
         r = subprocess.run([sys.executable, path, "selftest"],
                            capture_output=True, text=True, cwd=REPO)
         if r.returncode != 0 or "FAIL" in r.stdout.upper().replace("PASS", ""):
-            failures.append("%s selftest rc=%d" % (name, r.returncode))
-    # other cited scripts: must at least py_compile + run (usage) without crashing
+            failures.append("%s selftest rc=%d" % (rel, r.returncode))
+    # other cited scripts: must at least py_compile without crashing
     cited = set()
     for doc in _docs():
         cited.update(SCRIPT_RE.findall(_read(doc)))
-    for name in sorted(cited - set(SELFTEST_SCRIPTS)):
-        path = os.path.join(REPO, "scripts", name)
+    for rel in sorted(cited - set(SELFTEST_SCRIPTS)):
+        path = os.path.join(REPO, rel)
         if not os.path.exists(path):
             continue  # caught by check 1
         c = subprocess.run([sys.executable, "-m", "py_compile", path],
                            capture_output=True, text=True, cwd=REPO)
         if c.returncode != 0:
-            failures.append("%s: py_compile failed" % name)
+            failures.append("%s: py_compile failed" % rel)
     ok = not failures
     return ok, ("all cited commands run" if ok else "; ".join(failures))
 
 
 def check_bundle_parity():
-    src_root = os.path.join(REPO, ".claude", "skills")
-    bun_root = os.path.join(REPO, "simplicio_loop", "_bundle", "skills")
-    if not os.path.isdir(bun_root):
-        return False, "bundle skills dir missing: simplicio_loop/_bundle/skills"
+    # The pip bundle ships BOTH the skills and the hooks — both must mirror source byte-for-byte.
+    pairs = [
+        (os.path.join(REPO, ".claude", "skills"),
+         os.path.join(REPO, "simplicio_loop", "_bundle", "skills")),
+        (os.path.join(REPO, "hooks"),
+         os.path.join(REPO, "simplicio_loop", "_bundle", "hooks")),
+    ]
     drift = []
-    for root, _, names in os.walk(src_root):
-        for n in names:
-            sp = os.path.join(root, n)
-            rel = os.path.relpath(sp, src_root)
-            bp = os.path.join(bun_root, rel)
-            if not os.path.exists(bp):
-                drift.append("missing in bundle: %s" % rel)
-            elif _read(sp) != _read(bp):
-                drift.append("differs: %s" % rel)
+    for src_root, bun_root in pairs:
+        tag = os.path.basename(bun_root)
+        if not os.path.isdir(bun_root):
+            drift.append("bundle dir missing: _bundle/%s" % tag)
+            continue
+        for root, dirs, names in os.walk(src_root):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]  # skip build artifacts
+            for n in names:
+                if n.endswith((".pyc", ".pyo")):
+                    continue
+                sp = os.path.join(root, n)
+                rel = os.path.relpath(sp, src_root)
+                bp = os.path.join(bun_root, rel)
+                if not os.path.exists(bp):
+                    drift.append("%s: missing in bundle: %s" % (tag, rel))
+                elif _read(sp) != _read(bp):
+                    drift.append("%s: differs: %s" % (tag, rel))
     ok = not drift
-    return ok, ("bundle ≡ source (%s)" % os.path.relpath(bun_root, REPO) if ok
-                else "; ".join(drift))
+    return ok, ("bundle ≡ source (skills + hooks)" if ok else "; ".join(drift))
 
 
 CHECKS = [

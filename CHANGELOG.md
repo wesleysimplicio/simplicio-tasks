@@ -5,6 +5,23 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+### Added — final loop-orchestrator hardening (the last gaps to 10/10)
+- **`hooks/action_gate.py` — a FAIL-CLOSED safety gate, Step 5 made mechanical.** Runs as a Claude
+  `PreToolUse` (Bash) hook AND/OR a git pre-push hook and BLOCKS (exit 2), *before* the command runs:
+  force-push / history rewrite (`filter-branch`), remote-ref deletion, mass-delete (`rm -rf /`),
+  destructive DDL (`DROP DATABASE`/`TRUNCATE`), infra teardown (`terraform destroy`), and any
+  commit/push whose **staged diff contains a secret** (AWS/GitHub/Slack/OpenAI keys, private keys,
+  hardcoded credentials — placeholder-aware). Benign commands pass untouched; a push whose diff
+  can't be scanned is blocked (a safety check that can't run is not a pass). `selftest` 14/14;
+  pytest `tests/test_action_gate.py`. Wired into `hooks.claude.json` + the hooks README.
+- **Incremental triage — `loop_journal.py since`.** Each record now stamps the HEAD commit; `since`
+  shows only the delta (diff-stat + working tree) since the last recorded turn, so a turn reads what
+  changed instead of re-scanning the whole tree every iteration.
+- **Two loop modes — `converge` vs `drain`.** The scratchpad `mode` selects termination logic:
+  `converge` (single hard task — ends on the evidence-gated promise or a stall escalation) vs
+  `drain` (a queue — ends when the source re-query stays empty K rounds). Documented in
+  `simplicio-loop` SKILL so the two dynamics aren't conflated.
+
 ### Added — tests + claims-audit + local check runner (turn assertions into proof; no paid CI)
 - **`tests/` suite** — the workers' deterministic `selftest`s, an **e2e of the loop driver**
   (`hooks/loop_stop.py`) proving it stops on EVIDENCE, ignores a bare `<promise>`, and stops on the

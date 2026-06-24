@@ -130,6 +130,7 @@ iteration: 1
 max_iterations: <N or 0>          # 0 = unlimited (pair with a budget ceiling, never alone)
 completion_promise: "<EXACT TEXT>" | null
 evidence_required: true           # promise is rejected unless backed by a passing gate
+mode: converge | drain            # which termination logic applies (see Two loop modes)
 started_at: "<ISO-8601>"
 ---
 
@@ -154,8 +155,10 @@ detector below. It is the difference between a loop that converges and one that 
    tree, the scratchpad notes, AND the source of record (re-query the open issues/PRs, existing
    branches, the `.orchestrator/loop/done` flag). **Also read the attempt memory FIRST**:
    `python3 scripts/loop_journal.py resume` — it lists what was already tried and the dead-end
-   actions to AVOID, so the turn never re-runs a known-failing approach. Act only on what is still
-   genuinely open; never redo done work or act on a stale picture (idempotency).
+   actions to AVOID, so the turn never re-runs a known-failing approach. For **incremental triage**
+   (don't re-scan the whole tree every turn), `loop_journal.py since` shows only the delta since the
+   last recorded turn's commit. Act only on what is still genuinely open; never redo done work or
+   act on a stale picture (idempotency).
 3. **Work the goal** each turn as if fresh, against that triaged state. The model DECIDES the
    AC-scoped change; the **`simplicio-dev-cli` operator APPLIES and verifies it**
    (`simplicio-dev-cli task "<change>" --target <file>`) — do not hand-edit inside the loop. End EVERY
@@ -172,6 +175,26 @@ detector below. It is the difference between a loop that converges and one that 
    it switches strategy or escalates (§ Run-journal + stall detector).
 5. **Exit** by emitting the sentinel `<promise>EXACT TEXT</promise>` — and ONLY when every
    acceptance criterion is met AND a real gate passed **in the SAME turn** (`evidence_required`).
+
+## Two loop modes (different jobs, different termination)
+
+A loop drains a queue and a loop converges a hard task — opposite dynamics, so the scratchpad
+`mode` selects which termination logic the driver uses. Pick it when arming; default `converge`
+for a single goal, `drain` for a work-queue.
+
+| | `converge` (single hard task) | `drain` (a queue of items) |
+|---|---|---|
+| Wants | depth — keep changing strategy until ONE thing passes | breadth — clear many independent items, idempotently |
+| Each turn | triage `since` last turn (incremental) → one AC-scoped change → verify → journal | claim next open item → implement → deliver → re-query source |
+| **Termination** | the evidence-gated `<promise>` fires, OR the **stall detector** says STALLED and escalates (below) | the source re-query returns empty for **K consecutive rounds** (`dry≥2`) AND the working set is idle |
+| Anti-pattern it avoids | oscillation (retrying the same dead-end) | missing late-arriving work (stops too early) |
+
+Both still obey the universal exits (promise+evidence, `max_iterations`, budget, STOP). The split
+only changes WHEN "naturally done" is declared: `converge` is done when the one task is proven or
+genuinely stuck; `drain` is done when the queue stays empty across rounds. Don't apply `drain`'s
+"empty K times → done" to a single task (it would quit the moment a turn makes no visible change),
+and don't apply `converge`'s stall-escalation to a queue (a stuck item should be quarantined, not
+halt the whole drain). `simplicio-tasks` Step 3 routes fast-path/heavy-path on top of this.
 
 ## Run-journal + stall detector (the loop's working memory)
 
