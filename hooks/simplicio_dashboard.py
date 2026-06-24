@@ -13,9 +13,11 @@ Usage:
 Front-end is split into STYLE / BADGE_SVG / BODY / SCRIPT constants and composed
 into HTML via placeholder substitution — single-file (deploy-friendly).
 """
+import calendar
 import http.server
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -45,22 +47,19 @@ PROXY_PORT = os.environ.get("SIMPLICIO_PROXY_PORT", os.environ.get("HEADROOM_POR
 # Engine call: the native Simplicio engine module, invoked cross-platform via this interpreter.
 ENGINE_CMD = [sys.executable or "python3", str(REPO_ROOT / "engine" / "simplicio_engine.py")]
 
-# Each runtime: skills LOAD, loop DRIVE, coverage STATE, and crucially the token
-# INTERCEPT tier — how (or whether) the Simplicio capture engine can really capture it:
-#   native  — engine has a durable integration (`simplicio capture init <client>`)
-#   baseurl — OpenAI/Anthropic-compatible: route its base_url through the proxy
-#   none    — uses a proprietary API the proxy cannot intercept (yet)
+# Each runtime: skills LOAD, loop DRIVE, coverage STATE, the token INTERCEPT tier
+# (native = durable engine integration; baseurl = route its base_url through the proxy),
+# and `proc` — a regex to detect whether the runtime is currently RUNNING (for the live
+# "active / blinking" indicator). Only interceptable runtimes are listed; proprietary
+# Google/AWS runtimes (Gemini/Kiro/Antigravity) were removed — they can't be intercepted.
 RUNTIMES = [
-    {"name": "Claude", "load": ".claude/skills", "loop": "Stop hook", "state": "full", "intercept": "native", "logo": "claude"},
-    {"name": "Codex", "load": "AGENTS.md", "loop": "self-paced", "state": "partial", "intercept": "native", "logo": "openai"},
-    {"name": "VS Code", "load": "copilot instructions", "loop": "tasks", "state": "partial", "intercept": "native", "logo": "vscode"},
-    {"name": "OpenClaw", "load": "plugin SDK", "loop": "native loop", "state": "native", "intercept": "native", "logo": "openclaw"},
-    {"name": "Hermes", "load": "native recall", "loop": "native loop", "state": "native", "intercept": "baseurl", "logo": "hermes"},
-    {"name": "Cursor", "load": ".cursor-plugin", "loop": "Stop hook", "state": "full", "intercept": "baseurl", "logo": "cursor"},
-    {"name": "OpenCode", "load": "AGENTS.md", "loop": "self-paced", "state": "partial", "intercept": "baseurl", "logo": "opencode"},
-    {"name": "Gemini", "load": "GEMINI.md", "loop": "self-paced", "state": "partial", "intercept": "none", "logo": "gemini"},
-    {"name": "Kiro", "load": ".kiro/steering", "loop": "spec tick", "state": "partial", "intercept": "none", "logo": "kiro"},
-    {"name": "Antigravity", "load": "rules", "loop": "self-paced", "state": "partial", "intercept": "none", "logo": "antigravity"},
+    {"name": "Claude", "load": ".claude/skills", "loop": "Stop hook", "state": "full", "intercept": "native", "logo": "claude", "proc": r"Claude\.app|claude --|claude-code", "families": ["anthropic"]},
+    {"name": "Codex", "load": "AGENTS.md", "loop": "self-paced", "state": "partial", "intercept": "native", "logo": "openai", "proc": r"\bcodex\b", "families": ["openai"]},
+    {"name": "VS Code", "load": "copilot instructions", "loop": "tasks", "state": "partial", "intercept": "native", "logo": "vscode", "proc": r"Visual Studio Code|Code Helper|Copilot", "families": ["openai"]},
+    {"name": "OpenClaw", "load": "plugin SDK", "loop": "native loop", "state": "native", "intercept": "native", "logo": "openclaw", "proc": r"openclaw", "families": ["openai", "anthropic"]},
+    {"name": "Hermes", "load": "native recall", "loop": "native loop", "state": "native", "intercept": "baseurl", "logo": "hermes", "proc": r"hermes", "families": ["deepseek", "openai"]},
+    {"name": "Cursor", "load": ".cursor-plugin", "loop": "Stop hook", "state": "full", "intercept": "baseurl", "logo": "cursor", "proc": r"Cursor\.app|Cursor Helper", "families": ["openai", "anthropic"]},
+    {"name": "OpenCode", "load": "AGENTS.md", "loop": "self-paced", "state": "partial", "intercept": "baseurl", "logo": "opencode", "proc": r"opencode", "families": ["openai", "anthropic"]},
 ]
 
 # ── Brand badge: faithful inline vector of the Simplicio hexagon-S mark ───────
@@ -149,6 +148,7 @@ STYLE = """<style>
   .chip b { color: var(--text); font-variant-numeric: tabular-nums; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px rgba(255,94,108,0.7); }
   .dot.green { background: var(--green); box-shadow: 0 0 12px rgba(157,255,26,0.9); }
+  .dot.blue { background: var(--cyan); box-shadow: 0 0 12px rgba(54,215,255,0.85); }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
   .live-dot { animation: pulse 1.5s ease-in-out infinite; }
 
@@ -231,12 +231,17 @@ STYLE = """<style>
              border-radius: 10px; background: rgba(0,0,0,0.3); transition: border-color .2s; }
   .runtime:hover { border-color: rgba(157,255,26,0.4); }
   .runtime.none { opacity: 0.62; }
+  .runtime.active { border-color: rgba(157,255,26,0.55); box-shadow: 0 0 16px rgba(157,255,26,0.14); }
   .runtime-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
   .rt-id { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
   .rt-logo { width: 22px; height: 22px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
   .rt-logo svg { width: 22px; height: 22px; }
   .runtime-name { color: var(--text); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.02em; overflow-wrap: anywhere; }
   .livecap { display: inline-flex; align-items: center; gap: 5px; font-size: 0.52rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--green); }
+  .livecap.cap { color: var(--green); }
+  .livecap.act { color: var(--cyan); }
+  .livecap.rdy { color: var(--faint); }
+  .livecap.rdy .dot { background: var(--faint); box-shadow: none; }
   .cap-badge { display: inline-block; border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px;
                font-size: 0.52rem; letter-spacing: 0.07em; text-transform: uppercase; white-space: nowrap; margin-bottom: 7px; }
   .cap-badge.native { color: var(--green); }
@@ -425,10 +430,13 @@ const CAP_LABEL={native:'intercept · native',baseurl:'intercept · base-url',no
 function runtimeCard(r){
   const tier=r.intercept||'none';
   const logo=LOGOS[r.logo]||LOGOS._default;
-  const live=r.live?'<span class="livecap"><span class="dot green live-dot"></span>ready</span>':'';
-  return `<div class="runtime ${tier}">
+  let badge='';
+  if(r.capturing) badge='<span class="livecap cap"><span class="dot green live-dot"></span>capturing</span>';
+  else if(r.active) badge='<span class="livecap act"><span class="dot blue live-dot"></span>active</span>';
+  else if(r.live) badge='<span class="livecap rdy"><span class="dot"></span>ready</span>';
+  return `<div class="runtime ${tier}${r.active?' active':''}">
     <div class="runtime-top">
-      <span class="rt-id"><span class="rt-logo">${logo}</span><span class="runtime-name">${escapeHTML(r.name)}</span></span>${live}
+      <span class="rt-id"><span class="rt-logo">${logo}</span><span class="runtime-name">${escapeHTML(r.name)}</span></span>${badge}
     </div>
     <span class="cap-badge ${tier}">${CAP_LABEL[tier]}</span>
     <div class="runtime-meta"><span class="k">load</span> ${escapeHTML(r.load)} · <span class="k">drive</span> ${escapeHTML(r.loop)}</div>
@@ -508,10 +516,10 @@ async function refresh(){
     ].join('');
 
     document.getElementById('runtimeGrid').innerHTML=(d.runtimes||[]).map(runtimeCard).join('');
-    document.getElementById('interceptCount').textContent=d.intercept_ready+'/'+(d.runtimes||[]).length;
+    document.getElementById('interceptCount').textContent=(d.active_count||0)+' active / '+d.intercept_ready;
     const provPct=d.provider_total?Math.round(d.provider_interceptable/d.provider_total*100):0;
     const provMeta=d.provider_total?` · ${d.provider_interceptable}/${d.provider_total} providers (${provPct}%)`:'';
-    document.getElementById('interceptMeta').textContent=`${d.intercept_ready}/${(d.runtimes||[]).length} runtimes${provMeta}`;
+    document.getElementById('interceptMeta').textContent=`${d.active_count||0} active · ${d.intercept_ready} interceptable${provMeta}`;
     document.getElementById('logSource').textContent=d.log_source||'no log yet';
     const sess=d.session||{};
     const since=sess.started_at?`session since ${fmtDT(sess.started_at)} · `:'';
@@ -591,6 +599,25 @@ def _read_savings_json():
             except (ValueError, OSError):
                 pass
     return {}
+
+
+def _model_family(model):
+    s = (model or "").lower()
+    for k, v in (("deepseek", "deepseek"), ("claude", "anthropic"), ("anthropic", "anthropic"),
+                 ("gemini", "gemini"), ("gpt", "openai"), ("o1", "openai"), ("o3", "openai"),
+                 ("chatgpt", "openai"), ("openai", "openai"), ("llama", "llama"),
+                 ("mistral", "mistral"), ("mixtral", "mistral"), ("qwen", "qwen"),
+                 ("grok", "xai"), ("xai", "xai"), ("kimi", "kimi"), ("groq", "groq")):
+        if k in s:
+            return v
+    return "default"
+
+
+def _parse_iso_epoch(iso):
+    try:
+        return calendar.timegm(time.strptime(iso, "%Y-%m-%dT%H:%M:%SZ"))
+    except (ValueError, TypeError):
+        return 0
 
 
 def get_status():
@@ -681,16 +708,28 @@ def get_status():
 
     savings_pct = round((tok_saved / max(tok_before, 1)) * 100, 1)
 
-    # Annotate each runtime with live interceptability (engine up + a capture path).
+    # Which runtimes are RUNNING right now (for the live "active / blinking" indicator).
+    ps_out = _run(["ps", "-axo", "command="], timeout=3).stdout
+    # Which LLM families were captured in the last 10 minutes (currently being saved).
+    recent_fams = set()
+    cutoff = time.time() - 600
+    for h in history[-200:]:
+        ts = _parse_iso_epoch(h.get("timestamp", ""))
+        if ts and ts >= cutoff:
+            recent_fams.add(_model_family(h.get("model", "")))
+
     runtimes = []
     ready = 0
     for r in RUNTIMES:
         tier = r.get("intercept", "none")
-        live = proxy_running and tier != "none"
         if tier != "none":
             ready += 1
-        runtimes.append({**r, "live": live})
+        active = bool(r.get("proc")) and re.search(r["proc"], ps_out) is not None
+        capturing = active and proxy_running and bool(set(r.get("families", [])) & recent_fams)
+        runtimes.append({**r, "live": proxy_running and tier != "none",
+                         "active": active, "capturing": capturing})
     none_count = len(RUNTIMES) - ready
+    active_count = sum(1 for r in runtimes if r["active"])
     prov_total, prov_intercept = _read_providers()
 
     return {
@@ -717,6 +756,7 @@ def get_status():
         "runtimes": runtimes,
         "intercept_ready": ready,
         "intercept_none": none_count,
+        "active_count": active_count,
         "timestamp": time.strftime("%H:%M:%S"),
         "datetime": time.strftime("%Y-%m-%d %H:%M:%S"),
     }

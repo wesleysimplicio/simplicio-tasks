@@ -3,6 +3,24 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [2.1.0] — 2026-06-24
+
+### Added
+- **Live multi-runtime "active / blinking" detection.** The dashboard now detects which runtimes
+  are actually RUNNING (process match) and shows them blinking: `● active` (blue) when running,
+  `● capturing` (green) when their traffic is being saved in the last 10 min, `○ ready` otherwise.
+  So with Claude open + Hermes on, both are recognized and blink. Header shows the active count.
+- **Per-provider routing in the native engine** (`gpt→openai`, `claude→anthropic`, `deepseek→deepseek`,
+  …): one capture proxy forwards each model to its REAL provider with the client's own key — captures
+  every routable runtime **without swapping its model**. Verified live (gpt→OpenAI, deepseek→DeepSeek).
+- **5-algorithm deterministic compression** (ANSI strip, rule-run cap, line dedup, whitespace, JSON
+  minify). Verified capture coverage: OpenAI stream/non-stream, Anthropic, multimodal, concurrent,
+  non-JSON fail-open — every request through the proxy is captured.
+
+### Removed
+- **Gemini, Kiro, Antigravity** dropped from the runtimes list — they use proprietary Google/AWS APIs
+  the proxy can't intercept. Only the 7 genuinely-interceptable runtimes remain.
+
 ## [2.0.0] — 2026-06-24
 
 ### Added — native Simplicio capture engine (no external dependency)
