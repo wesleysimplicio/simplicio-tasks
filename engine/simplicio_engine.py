@@ -497,7 +497,7 @@ def main(argv=None):
     _PASS = {"init": "simplicio_init.py", "wrap": "simplicio_wrap.py", "report": "simplicio_report.py",
              "verify": "simplicio_verify.py", "audit": "simplicio_audit.py", "capture": "simplicio_capture.py",
              "evals": "simplicio_evals.py", "kompress": "simplicio_kompress.py", "detect": "simplicio_detect.py",
-             "router": "simplicio_router.py", "embed": "simplicio_embed.py"}
+             "router": "simplicio_router.py", "embed": "simplicio_embed.py", "image": "simplicio_image.py"}
     if raw:
         cmd, rest = raw[0], raw[1:]
         if cmd == "memory" and rest and rest[0] != "stats":

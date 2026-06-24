@@ -3,6 +3,24 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [2.11.0] — 2026-06-24
+
+### Added — image compression (the 4th and last real headroom model)
+- **`simplicio image <path>`** (`engine/simplicio_image.py`) — vision-LLM image compression ported from
+  headroom's `image/` subsystem (techniques preserve/full_low/crop/transcode = aspect-preserving LANCZOS
+  downscale + efficient re-encode), using the **REAL** `chopratejas/siglip-image-encoder-onnx` (~94 MB)
+  as a content-similarity verifier so compression never destroys content. Verified: 1600×1200 → 768×576,
+  90.6% bytes saved, SigLIP cosine ~0.997; a 512px tier cuts OpenAI vision tokens ~67%. Pillow-only
+  fallback works without the model. (`[onnx]` extra now includes pillow.)
+- **All four real headroom ONNX models now run inside Simplicio**: kompress-v2-base (compression),
+  technique-router-onnx (routing), all-MiniLM-L6-v2-onnx (embeddings), siglip-image-encoder-onnx (image).
+
+### Scope note — the Rust crates
+The upstream's `crates/` (headroom-core/proxy/py) are a **pyo3 performance re-implementation** of the
+Python — `headroom-parity` literally asserts Rust == Python. They add **no new capability** (just native
+speed). The functional surface they cover is already in Simplicio's Python engine, so there is no
+*capability* gap there — only an optional native-speed rewrite, which is out of scope for the token monitor.
+
 ## [2.10.0] — 2026-06-24
 
 ### Added — more upstream subsystems ported (3 agents; 2 more REAL headroom models)
