@@ -3,6 +3,16 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [1.8.1] — 2026-06-24
+
+### Changed
+- **Documented the Simplicio Token Monitor in the README** (web dashboard `:9090` + menu-bar tray +
+  the `simplicio-economy.sh` module + cross-platform install) so it is a discoverable, complete
+  deliverable. Rebranded the token-economy table's accelerator row to "Simplicio capture proxy".
+- QA pass: monitor verified fully functional — all API fields present, real-time auto-refresh
+  (live token count growing 102,865 → 123,609), no-data/error fallbacks, 0 console errors, tray
+  reading live data.
+
 ## [1.8.0] — 2026-06-23
 
 ### Added

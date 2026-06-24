@@ -253,10 +253,24 @@ Between turns, LMCache (when available) caches the KV state so re-feed costs nea
 | `simplicio-compress` | Terse prose + one-time memory compaction |
 | `orient_clamp.py` | Clamp + tee on every shell command, zero wiring |
 | LMCache KV cache | 40-70% TTFT reduction on repeated prompts (local models) |
-| Headroom proxy + MCP | 60-95% fewer tokens on tool outputs via transparent compression daemon |
+| Simplicio capture proxy + MCP | 60-95% fewer tokens on tool outputs via a transparent compression daemon |
 
 Savings only count on a verified-correct outcome. Baseline = the cheapest sensible non-orchestrated
 path to the same result. See `references/token-economy.md`.
+
+### 📈 Simplicio Token Monitor
+
+A live, always-on view of the savings:
+
+- **Web dashboard** — `http://127.0.0.1:9090` — real-time token chart, savings gauge, the LLMs/runtimes
+  and **141/144 providers (98%)** we intercept, and a live proxy log.
+- **Menu-bar / tray widget** — live tokens saved in the system tray (macOS rumps · Windows/Linux pystray).
+- **One module** — `scripts/simplicio-economy.sh {status|up|wire}` brings up the capture proxy + monitor +
+  tray + the `simplicio-dev-cli` deterministic operator and reports the whole stack.
+
+Install registers all three as auto-start services (macOS launchd · Linux systemd · Windows Startup) via
+`scripts/setup_simplicio.sh`, or the cross-platform `python3 scripts/install_services.py install`. After
+install the monitor + capture run **without invoking the loop** — see `references/token-capture.md`.
 
 |---
 
