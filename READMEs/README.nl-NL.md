@@ -549,13 +549,3 @@ python3 scripts/check.py            # the whole gate (audit + tests)
 ## 📄 Licentie
 
 MIT
-
-## 💳 Prijzen
-
-De engine is **gratis en MIT** — volledig zelf te hosten, nooit verminkt. Een voorgesteld
-**open-core gehost niveau** (beheerde 24/7-watcher, gehoste operatoren, behouden
-besparingsdashboard, gedistribueerde `video_evidence`-render) wordt geschetst in
-[`PRICING.md`](../PRICING.md), samen met een deterministische, privacy-bewarende
-facturatie-architectuur gebouwd op de metering-primitieven die de lus toch al produceert
-(`loop-budget.json`-kill-switch + `savings_ledger`). Het is een voorstel — er wordt vandaag niets
-gefactureerd.

@@ -548,12 +548,3 @@ python3 scripts/check.py            # the whole gate (audit + tests)
 ## 📄 Licencia
 
 MIT
-
-## 💳 Precios
-
-El motor es **libre y MIT** — totalmente auto-hospedable, nunca capado. Un **nivel hospedado
-open-core** propuesto (watcher 24/7 gestionado, operadores hospedados, dashboard de ahorro retenido,
-render distribuido de `video_evidence`) está esbozado en [`PRICING.md`](../PRICING.md), junto con una
-arquitectura de facturación determinista y respetuosa con la privacidad construida sobre las
-primitivas de metering que el bucle ya produce (kill-switch de `loop-budget.json` + `savings_ledger`).
-Es una propuesta — nada se factura hoy.

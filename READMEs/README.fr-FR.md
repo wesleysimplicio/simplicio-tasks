@@ -557,12 +557,3 @@ python3 scripts/check.py            # the whole gate (audit + tests)
 ## 📄 Licence
 
 MIT
-
-## 💳 Tarification
-
-Le moteur est **gratuit et sous licence MIT** — entièrement auto-hébergeable, jamais bridé. Un **palier
-hébergé open-core** proposé (watcher 24h/24 managé, opérateurs hébergés, tableau de bord d'économies
-conservé, rendu `video_evidence` distribué) est esquissé dans [`PRICING.md`](../PRICING.md), avec une
-architecture de facturation déterministe et respectueuse de la vie privée bâtie sur les primitives de
-métering que la boucle produit déjà (kill-switch `loop-budget.json` + `savings_ledger`). C'est une
-proposition — rien n'est facturé aujourd'hui.

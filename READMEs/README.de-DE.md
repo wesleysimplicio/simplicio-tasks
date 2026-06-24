@@ -541,12 +541,3 @@ python3 scripts/check.py            # the whole gate (audit + tests)
 ## 📄 Lizenz
 
 MIT
-
-## 💳 Preisgestaltung
-
-Die Engine ist **frei und MIT** — vollständig selbst hostbar, niemals beschnitten. Eine vorgeschlagene
-**Open-Core-Hosted-Tier** (verwalteter 24/7-Watcher, gehostete Operatoren, beibehaltenes
-Einsparungs-Dashboard, verteiltes `video_evidence`-Rendering) ist in [`PRICING.md`](../PRICING.md) skizziert,
-zusammen mit einer deterministischen, datenschutzwahrenden Abrechnungsarchitektur, die auf den
-Metrik-Primitiven aufbaut, die die Schleife ohnehin erzeugt (`loop-budget.json`-Kill-Switch +
-`savings_ledger`). Es ist ein Vorschlag — heute wird nichts berechnet.

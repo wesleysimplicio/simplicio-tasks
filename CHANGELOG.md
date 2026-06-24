@@ -14,6 +14,11 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
   still said 44 while `extension-points.md`/`AGENTS.md` already said 48. Re-synced the pip bundle
   (`simplicio_loop/_bundle/skills/*`) to source so `scripts/check.py` is green again (audit 4/4).
 
+### Removed
+- The **`## 💳 Pricing`** section (heading + open-core/billing-proposal paragraph) from `README.md`
+  and all 14 translations under `READMEs/`. The capability-table billing row and `PRICING.md` are
+  left untouched.
+
 ## [3.9.3] — 2026-06-24
 
 ### Fixed — `video_evidence` renders again on the shipped hyperframes (0.7.x)

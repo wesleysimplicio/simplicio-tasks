@@ -551,12 +551,3 @@ python3 scripts/check.py            # the whole gate (audit + tests)
 ## 📄 Licencja
 
 MIT
-
-## 💳 Cennik
-
-Silnik jest **darmowy i na licencji MIT** — w pełni samohostowalny, nigdy okrojony. Proponowany
-**hostowany poziom open-core** (zarządzany obserwator 24/7, hostowani operatorzy, zachowany dashboard
-oszczędności, rozproszony render `video_evidence`) jest naszkicowany w [`PRICING.md`](../PRICING.md),
-wraz z deterministyczną, chroniącą prywatność architekturą rozliczeń zbudowaną na prymitywach
-pomiarowych, które pętla już produkuje (kill-switch `loop-budget.json` + `savings_ledger`). To
-propozycja — dziś nic nie jest rozliczane.

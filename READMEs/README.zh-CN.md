@@ -522,11 +522,3 @@ python3 scripts/check.py            # the whole gate (audit + tests)
 ## 📄 许可证
 
 MIT
-
-## 💳 定价
-
-引擎是**免费且 MIT 的** —— 完全可自托管，绝不阉割。一个拟议中的**开放核心托管层**
-（托管的 7×24 看守者、托管的操作器、保留的节省仪表盘、分布式 `video_evidence` 渲染）在
-[`PRICING.md`](../PRICING.md) 中有勾勒，并附带一套建立在循环已产生的计量原语
-（`loop-budget.json` 急停开关 + `savings_ledger`）之上的、确定性且保护隐私的计费架构。
-这只是一个提案 —— 如今没有任何费用产生。

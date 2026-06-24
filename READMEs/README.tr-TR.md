@@ -542,12 +542,3 @@ python3 scripts/check.py            # the whole gate (audit + tests)
 ## 📄 Lisans
 
 MIT
-
-## 💳 Fiyatlandırma
-
-Motor **ücretsiz ve MIT'tir** — tamamen kendi sunucunuzda barındırılabilir, asla kısıtlanmamış.
-Önerilen bir **open-core barındırılan kademe** (yönetilen 7/24 watcher, barındırılan operatörler,
-saklanan tasarruf panosu, dağıtık `video_evidence` render) [`PRICING.md`](../PRICING.md)'de, döngünün
-zaten ürettiği metrikleme primitifleri üzerine kurulu deterministik, gizliliği koruyan bir faturalama
-mimarisiyle birlikte taslak halinde sunulmuştur (`loop-budget.json` kill-switch + `savings_ledger`).
-Bu bir öneridir — bugün hiçbir şey faturalandırılmaz.

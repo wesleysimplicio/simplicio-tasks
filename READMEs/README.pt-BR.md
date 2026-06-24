@@ -538,12 +538,3 @@ python3 scripts/check.py            # the whole gate (audit + tests)
 ## 📄 Licença
 
 MIT
-
-## 💳 Pricing
-
-A engine é **gratuita e MIT** — totalmente auto-hospedável, nunca mutilada. Um **tier hospedado
-open-core** proposto (watcher 24/7 gerenciado, operadores hospedados, dashboard de economia retido,
-render distribuído de `video_evidence`) está esboçado em [`PRICING.md`](../PRICING.md), junto com uma
-arquitetura de billing determinística e preservadora de privacidade construída sobre as primitivas de
-medição que o loop já produz (kill-switch `loop-budget.json` + `savings_ledger`). É uma proposta —
-nada é cobrado hoje.

@@ -534,12 +534,3 @@ python3 scripts/check.py            # the whole gate (audit + tests)
 ## 📄 License
 
 MIT
-
-## 💳 Pricing
-
-エンジンは**無料でMIT**です——完全にセルフホスト可能で、決して機能を削られていません。提案されている
-**オープンコアのホスト型ティア**（マネージドな24/7 watcher、ホストされたオペレーター、保持される
-節約ダッシュボード、分散 `video_evidence` レンダリング）は [`PRICING.md`](../PRICING.md) にスケッチ
-されており、ループが既に生成する計測プリミティブ（`loop-budget.json` キルスイッチ＋
-`savings_ledger`）の上に構築された、決定論的でプライバシーを保護する課金アーキテクチャも併せて
-記しています。これは提案であり——今日課金されるものは何もありません。
