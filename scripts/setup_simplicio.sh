@@ -195,3 +195,8 @@ echo "  (init forwards each client to its OWN provider — see"
 echo "   .claude/skills/simplicio-tasks/references/token-capture.md)"
 echo "═══════════════════════════════════════"
 echo ""
+# Token-economy module is now active — show the integrated stack status.
+bash "$SCRIPT_DIR/scripts/simplicio-economy.sh" status 2>/dev/null || true
+echo ""
+echo "  Manage the whole economy stack any time:  bash scripts/simplicio-economy.sh {status|up}"
+echo ""

@@ -54,3 +54,27 @@ tokens/$ saved. `init` installs the transparent integration for each installed n
 
 After install, capture is active for any client wired via `init`/base-url, the proxy survives
 reboots, and the monitor is always live. Verify any time with `scripts/simplicio-capture.sh status`.
+
+## The token-economy module (one entrypoint)
+
+`scripts/simplicio-economy.sh` ties the whole always-on stack together so token savings work
+**after install without ever invoking simplicio-loop**:
+
+```bash
+bash scripts/simplicio-economy.sh status              # capture proxy + monitor + tray + operator + savings
+bash scripts/simplicio-economy.sh up                  # ensure all three services are running
+bash scripts/simplicio-economy.sh capture openai      # transparent proxy → api.openai.com (no model swap)
+bash scripts/simplicio-economy.sh capture anthropic
+```
+
+`status` reports: capture proxy, token monitor (`:9090`), menu-bar tray, the deterministic operator
+`simplicio-dev-cli`, and lifetime savings. `setup_simplicio.sh` runs it at the end of install.
+
+## Verified — transparent capture is real
+
+A **transparent** capture proxy (`--openai-api-url https://api.openai.com/v1`) was stood up and a real
+`gpt-5.4` request sent through it: it returned a genuine OpenAI response (`model
+gpt-5.4-2026-03-05`, `usage` 108+4 tokens) and the proxy's own `/stats` recorded
+`api_requests: 4`, `primary_model: gpt-4o-mini`, `total_tokens_before: 124`. Proof that routing an
+OpenAI client through the transparent proxy **captures its tokens without changing its model** — the
+correct way to capture Codex/Cursor/OpenCode, kept separate from the Hermes→DeepSeek proxy.

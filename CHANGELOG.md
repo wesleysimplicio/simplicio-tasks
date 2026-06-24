@@ -3,6 +3,20 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [1.6.0] — 2026-06-23
+
+### Added
+- **Token-economy module (`scripts/simplicio-economy.sh`).** One entrypoint that brings up and
+  reports the whole always-on savings stack — capture proxy + token monitor + menu-bar tray +
+  the deterministic operator `simplicio-dev-cli` + lifetime savings — so token capture/savings
+  work **after install without invoking simplicio-loop**. `setup_simplicio.sh` runs it at the end.
+  Subcommands: `status`, `up`, `capture <openai|anthropic> [port]`.
+- **Transparent capture proxy** (`simplicio-economy capture openai`) — forwards each call to the
+  client's REAL provider, capturing tokens without swapping the model. **Verified end-to-end:** a
+  real `gpt-5.4` request through the transparent proxy returned a genuine OpenAI response and the
+  proxy's `/stats` recorded the request (`api_requests: 4`, `total_tokens_before: 124`). This is
+  the correct path to capture Codex/Cursor/OpenCode, kept separate from the Hermes→DeepSeek proxy.
+
 ## [1.5.0] — 2026-06-23
 
 ### Added
