@@ -179,6 +179,11 @@ Never mark done without green gates + evidence; a failure is NOT a blocker — i
   AC; majority-refute → back to fix. Delegate to `simplicio-review` when loaded. Full: `references/quality-safety-delivery.md`.
 
 ## Step 5 — Safety gates (NON-NEGOTIABLE — inline, never skipped)
+> **Enforced, not just described.** Where the host supports hooks, `hooks/action_gate.py` runs as a
+> **fail-closed** `PreToolUse`/pre-push gate and mechanically BLOCKS the items below before a command
+> runs (exit 2) — so the contract holds even if the model forgets. It is the executable form of this
+> step (`action_gate`/`security` extension points). Wire it as a git pre-push hook for zero-CI
+> enforcement: `action_gate.py check --staged`.
 - **Secret-scan** every diff before commit/push; block on hit.
 - **Irreversible-op human gate:** force-push, history rewrite, prod deploy, data/schema delete,
   mass-file delete → STOP and ask ONE line. Everything else proceeds autonomously. Headless + no

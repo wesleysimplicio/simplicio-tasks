@@ -84,6 +84,11 @@ failure), `orient_rewrite.py` (opt-in auto-clamp), `learn_stop.py` (queue retros
 
 `orient_clamp.py` needs no wiring — `python3 hooks/orient_clamp.py -- <cmd>` anywhere.
 
+**Safety is enforced, not just described:** `hooks/action_gate.py` is a **fail-closed**
+`PreToolUse` (Bash) / git-pre-push hook that BLOCKS irreversible ops (force-push, history rewrite,
+mass-delete, destructive DDL, infra teardown) and secret-laden commits/pushes before they run
+(exit 2) — Step 5 made mechanical. `python3 hooks/action_gate.py selftest` proves the ruleset.
+
 Claude's native tools satisfy the extension points: sub-agents → `execute`, file tools →
 `deterministic_edit`, the scheduler → `watcher`. Where `simplicio-runtime` is installed,
 `simplicio mcp register --client claude-code` binds them deterministically.

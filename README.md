@@ -460,6 +460,9 @@ gate + secret-scan on. With `ceiling = 0` the watcher refuses to run unattended 
 - **Secret-scan** every diff; block on hit.
 - **Irreversible-op human gate** — force-push, history rewrite, prod deploy, data/schema delete,
   mass-file delete → stop and ask. Headless + no approver → remove the destructive capability.
+- **Enforced, not just promised** — `hooks/action_gate.py` is a **fail-closed** `PreToolUse` /
+  git-pre-push hook that mechanically blocks the above (and secret-laden commits) *before* they run.
+  The safety contract holds even if the model forgets it. `selftest` proves the ruleset (14/14).
 - **4-state pre-execution verdict** — optimization may never raise a command's risk tier.
 - **Trust-before-load** — perception-shaping config (clamp profiles, suppression lists) is
   untrusted until a human reviews and hash-pins it.
