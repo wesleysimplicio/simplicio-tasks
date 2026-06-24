@@ -470,11 +470,12 @@ pwsh scripts/install.ps1 <runtime> [-Global]        # Windows
 # <runtime> ∈ claude codex vscode cursor antigravity kiro opencode gemini aider hermes openclaw
 ```
 
-Veya, Claude Code / Cursor üzerinde, onu bir marketplace eklentisi olarak ekleyin:
+Veya, Claude Code / Cursor üzerinde, onu doğrudan en son GitHub sürümünden kurun (marketplace yok):
 
-```
-/plugin marketplace add wesleysimplicio/simplicio-loop
-/plugin install simplicio-loop@simplicio
+```bash
+gh release download --repo wesleysimplicio/simplicio-loop --archive tar.gz
+tar xzf simplicio-loop-*.tar.gz && cd simplicio-loop-*/
+bash scripts/install.sh claude    # or: bash scripts/install.sh cursor
 ```
 
 Ardından:

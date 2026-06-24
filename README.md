@@ -501,11 +501,12 @@ backend, the native **Rust** core, the tray dep). **Missing an optional piece is
 never blocks** — the Python engine + the deterministic path cover everything; the exit code is 0 as
 long as every REQUIRED item is healthy.
 
-Or, on Claude Code / Cursor, add it as a marketplace plugin:
+Or, on Claude Code / Cursor, install it straight from the latest GitHub release (no marketplace):
 
-```
-/plugin marketplace add wesleysimplicio/simplicio-loop
-/plugin install simplicio-loop@simplicio
+```bash
+gh release download --repo wesleysimplicio/simplicio-loop --archive tar.gz
+tar xzf simplicio-loop-*.tar.gz && cd simplicio-loop-*/
+bash scripts/install.sh claude    # or: bash scripts/install.sh cursor
 ```
 
 Then:

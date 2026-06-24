@@ -485,13 +485,14 @@ pwsh scripts/install.ps1 <runtime> [-Global]        # Windows
 
 <div dir="rtl">
 
-أو، على Claude Code / Cursor، أضِفه كملحق من السوق:
+أو، على Claude Code / Cursor، ثبِّته مباشرةً من أحدث إصدار على GitHub (دون السوق):
 
 </div>
 
-```
-/plugin marketplace add wesleysimplicio/simplicio-loop
-/plugin install simplicio-loop@simplicio
+```bash
+gh release download --repo wesleysimplicio/simplicio-loop --archive tar.gz
+tar xzf simplicio-loop-*.tar.gz && cd simplicio-loop-*/
+bash scripts/install.sh claude    # or: bash scripts/install.sh cursor
 ```
 
 <div dir="rtl">

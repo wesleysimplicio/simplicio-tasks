@@ -454,11 +454,12 @@ pwsh scripts/install.ps1 <runtime> [-Global]        # Windows
 # <runtime> ∈ claude codex vscode cursor antigravity kiro opencode gemini aider hermes openclaw
 ```
 
-或者，在 Claude Code / Cursor 上，把它作为市场插件添加：
+或者，在 Claude Code / Cursor 上，直接从最新的 GitHub 发布版安装（无需市场）：
 
-```
-/plugin marketplace add wesleysimplicio/simplicio-loop
-/plugin install simplicio-loop@simplicio
+```bash
+gh release download --repo wesleysimplicio/simplicio-loop --archive tar.gz
+tar xzf simplicio-loop-*.tar.gz && cd simplicio-loop-*/
+bash scripts/install.sh claude    # or: bash scripts/install.sh cursor
 ```
 
 然后：

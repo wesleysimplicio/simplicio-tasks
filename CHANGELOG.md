@@ -8,6 +8,12 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 ### Added
 - README: a **Join the Simplicio Discord** badge (`https://discord.gg/wM6tr7xVb`) in the top badge row.
 
+### Changed
+- README (all 15 languages): the **Claude Code / Cursor** install path no longer uses the
+  marketplace plugin (`/plugin marketplace add` … `/plugin install simplicio-loop@simplicio`). It now
+  installs **straight from the latest GitHub release** — `gh release download --archive tar.gz` → `tar
+  xzf` → `bash scripts/install.sh claude|cursor` (verified to resolve the latest source tarball).
+
 ### Fixed
 - Reconcile the extension-point count after #53 (44 → **48**): the badge/anchor/table in `README.md`,
   the runtime-contract line in `CLAUDE.md`, and the depth-table row in `simplicio-tasks/SKILL.md`
