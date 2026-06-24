@@ -1,4 +1,4 @@
-# Extension points — the 44 named binding points
+# Extension points — the 46 named binding points
 
 These are the named points where work happens. For each, if the host runtime exposes a native
 capability, BIND it (deterministic, local-first, near-zero token). If not, the LLM performs the
@@ -38,6 +38,7 @@ fallback with standard tools. The skill depends on the ABSTRACTION, never on a s
 | `delivery_gate` | One DoD gate: AC check + run-verification + regression guard + diff self-review + delivery certificate | LLM walks the AC checklist, runs affected tests, reviews own diff, writes a certificate into the receipt |
 | `action_gate` | Risk-classify every mutation (safe/auto/ask) vs allow/deny + hardline blocklist before it runs | LLM pattern-matches action vs irreversible-op list, secret-scans, proceeds/auto-runs/escalates to `human_gate` |
 | `repo_conventions` | Discover repo-specific conventions: CONTRIBUTING.md branch rules, commit scopes, AGENTS.md dev policies, PR template structure, CI commands beyond toolchain_detect (scripts/run_tests.sh, check-windows-footguns.py), cross-platform checks, supply-chain audit steps. Output structured object before Step 2 begins. | LLM reads CONTRIBUTING.md + AGENTS.md + .github/ + pyproject.toml, emits structured conventions summary that shapes Step 4–6 behavior (branch naming, commit scopes, PR checklist, CI commands, lint/test gates). |
+| `pr_template` | Discover .github/PULL_REQUEST_TEMPLATE.md, parse structured sections (what/why, how to test, checklist), map completed ACs to checklist items, and auto-fill the PR body before creation. Ensures every PR matches the maintainer's expected format on first submission. | LLM reads .github/PULL_REQUEST_TEMPLATE.md, maps completed acceptance criteria to each checklist item, fills in what/why from the item description and the implementation summary, lists changed files with rationale. |
 | `reuse_precedent` | Match item by fingerprint to a prior SOLVED run → reuse not regenerate → ingest the new solution back | LLM greps past PRs/closed issues/solved-patterns journal for the fingerprint, applies it, appends new solution |
 | `source_adapter` | Uniform source connector contract (list_ready/get_details/claim/update/attach/close) bound per source | LLM calls the source CLI/REST per verb; lockfile/label claim with TTL for cross-session safety |
 | `prompt_budget` | Token-budgeted prompt envelope + prompt-fragment cache: assemble only what fits the per-task ceiling | LLM caps per-subtask context to a fixed budget (chars/4), trims to the few files that matter, small on-disk cache |

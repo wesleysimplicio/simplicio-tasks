@@ -96,7 +96,7 @@ Emit: `Conventions: branch=<prefix> · commit=<type>(<scope>): · ci=<runner> ·
 Used by Steps 4–6 to shape branch names, commit messages, PR bodies, and gate checks.
 
 ## Step 1b — Extension points (bind native, else LLM fallback)
-Work happens at 45 named points. If the host binds one natively it runs deterministically at
+Work happens at 46 named points. If the host binds one natively it runs deterministically at
 near-zero token cost; otherwise the LLM performs the documented fallback. The skill depends on the
 ABSTRACTION, never a runtime — the INVERTED DEPENDENCY (the skill names no runtime; the runtime
 detects the skill). Full table + fallbacks: `references/extension-points.md`. Core rule: any
@@ -210,7 +210,7 @@ Never mark done without green gates + evidence; a failure is NOT a blocker — i
 
 ## Step 6 — Deliver + close + self-audit  ·  Step 6b — Feedback loop
 Per completed item: commit (Conventional Commits, English), push, Draft PR, close in-source with a
-short evidence comment (PR link + verification). **Verify reality, never trust self-report** — the
+short evidence comment (PR link + verification). If the `pr_template` extension point is available, use it to auto-fill the PR body from the discovered PULL_REQUEST_TEMPLATE.md and the item's acceptance criteria. Otherwise, read .github/PULL_REQUEST_TEMPLATE.md directly and fill in the sections. **Verify reality, never trust self-report** — the
 final step re-runs the merged build/test + smoke + a source re-query; the run's status = that
 measured state. Then self-audit (score, fix P0/P1, converge). Pursue the feedback loop until
 merge-ready: CI fail → fix root cause; review comments → adjust; branch behind main → additive
