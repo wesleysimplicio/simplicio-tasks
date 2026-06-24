@@ -3,6 +3,20 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [1.9.0] — 2026-06-24
+
+### Added
+- **Active-LLM banner** — the dashboard now detects which LLM is currently being intercepted (from the
+  latest request in `proxy_savings.json` history) and shows a banner "⚡ Saving tokens for `<model>`"
+  with the **LLM's logo** (DeepSeek, Anthropic, OpenAI, Gemini, Llama, Mistral, Qwen, xAI, Kimi, Groq…),
+  the tokens saved, and the **last-call datetime** + relative time.
+- **Datetime records throughout** — real timestamps from the capture history: last-call datetime on the
+  chart, session-start datetime in the footer, full `YYYY-MM-DD HH:MM:SS` "updated" stamp, and the
+  per-request `ts` carried on the series.
+
+### Fixed
+- Topbar "intercepting" chip showed `0` — now reflects `<ready>/<total>` runtimes (e.g. 7/10).
+
 ## [1.8.1] — 2026-06-24
 
 ### Changed

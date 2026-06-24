@@ -155,6 +155,23 @@ STYLE = """<style>
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
   .live-dot { animation: pulse 1.5s ease-in-out infinite; }
 
+  /* ── active LLM banner ────────────────────────────────────────── */
+  .active-llm { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 11px 16px; margin-bottom: 14px;
+                border: 1px solid var(--line); border-radius: 12px;
+                background: linear-gradient(90deg, rgba(157,255,26,0.09), rgba(7,15,11,0.55) 46%); }
+  .active-llm.idle { opacity: 0.6; }
+  .al-logo { width: 34px; height: 34px; flex: none; display: inline-flex; align-items: center; justify-content: center;
+             border: 1px solid var(--line); border-radius: 9px; background: rgba(0,0,0,0.4); }
+  .al-logo svg { width: 22px; height: 22px; }
+  .al-bolt { color: var(--yellow); font-size: 1.05rem; text-shadow: 0 0 10px rgba(255,210,63,0.6); }
+  .active-llm.idle .al-bolt { animation: none; color: var(--faint); text-shadow: none; }
+  .al-bolt { animation: pulse 1.6s ease-in-out infinite; }
+  .al-text { font-size: 0.86rem; color: var(--muted); letter-spacing: 0.02em; }
+  .al-text b { color: var(--green); font-size: 0.94rem; }
+  .al-meta { margin-left: auto; font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; text-align: right; }
+  .al-meta .dt { color: var(--cyan); }
+  .al-meta .sv { color: var(--green); }
+
   /* ── hero data row: savings + real-time chart ─────────────────── */
   .hero-data { display: grid; grid-template-columns: minmax(300px, 0.92fr) minmax(0, 1.6fr); gap: 14px; margin-bottom: 14px; }
   .panel { border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
@@ -279,6 +296,13 @@ BODY = """<div class="wrap">
     </div>
   </header>
 
+  <div class="active-llm idle" id="activeLlm">
+    <span class="al-logo" id="alLogo"></span>
+    <span class="al-bolt">&#9889;</span>
+    <span class="al-text">Saving tokens for <b id="alModel">awaiting traffic…</b></span>
+    <span class="al-meta"><span class="sv" id="alSaved">—</span> saved · last call <span class="dt" id="alWhen">—</span></span>
+  </div>
+
   <section class="hero-data">
     <div class="panel"><div class="panel-head"><div class="title">tokens saved</div><div class="meta">lifetime · compressed path</div></div>
       <div class="panel-body savings">
@@ -349,6 +373,46 @@ const LOGOS = {
   antigravity:'<svg viewBox="0 0 24 24"><g fill="none" stroke="#4f8cf7" stroke-width="1.5"><circle cx="12" cy="12" r="2.6" fill="#4f8cf7"/><ellipse cx="12" cy="12" rx="9" ry="3.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(120 12 12)"/></g></svg>',
   _default:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="#86a89a" stroke-width="2"/></svg>'
 };
+// LLM family logos (keyed by detected family), for the "active LLM" banner.
+const LLM_LOGOS = {
+  anthropic: LOGOS.claude, openai: LOGOS.openai, gemini: LOGOS.gemini,
+  deepseek:'<svg viewBox="0 0 24 24"><path fill="#4d6bfe" d="M3 12.5c4 .2 6-2 9.2-2s4.5 2 7.8 1c-.7 4.2-4.6 6.6-8.6 6.6S3.4 16.8 3 12.5z"/><circle cx="16.6" cy="10.8" r="1.2" fill="#fff"/></svg>',
+  llama:'<svg viewBox="0 0 24 24"><path fill="#0866ff" d="M7 4c-1 4-1 9 1 13 1 2 2.6 3 4 3s3-1 4-3c2-4 2-9 1-13-1.2 3-3 4-5 4S8.2 7 7 4z"/></svg>',
+  mistral:'<svg viewBox="0 0 24 24"><g fill="#fa520f"><rect x="3" y="5" width="4" height="4"/><rect x="17" y="5" width="4" height="4"/><rect x="7" y="9" width="4" height="4"/><rect x="13" y="9" width="4" height="4"/></g><rect x="3" y="13" width="18" height="4" fill="#ffd21e"/></svg>',
+  qwen:'<svg viewBox="0 0 24 24"><path fill="#6e3ff3" d="M12 3l8.5 15H3.5z" opacity=".55"/><path fill="#6e3ff3" d="M12 9l5 9H7z"/></svg>',
+  xai:'<svg viewBox="0 0 24 24"><path fill="#e8e8e8" d="M5 4h3.5l11 16H16zM15.5 4H19L8.5 20H5z"/></svg>',
+  kimi:'<svg viewBox="0 0 24 24"><path fill="#03060a" stroke="#9dff1a" stroke-width="1.6" d="M16.5 4a8 8 0 1 0 .2 16 6.2 6.2 0 0 1-.2-16z"/></svg>',
+  groq:'<svg viewBox="0 0 24 24"><path fill="#f55036" d="M13.5 2 4 14h6l-1.5 8L20 9h-6.5z"/></svg>',
+  default: LOGOS._default
+};
+function llmFamily(provider, model){
+  const s=((model||'')+' '+(provider||'')).toLowerCase();
+  if(s.includes('deepseek')) return 'deepseek';
+  if(s.includes('claude')||s.includes('anthropic')) return 'anthropic';
+  if(s.includes('gemini')||s.includes('google')||s.includes('vertex')) return 'gemini';
+  if(/(^|[^a-z])(gpt|o1|o3|o4|chatgpt|openai)([^a-z]|$)/.test(s)) return 'openai';
+  if(s.includes('llama')||s.includes('meta-')) return 'llama';
+  if(s.includes('mistral')||s.includes('mixtral')||s.includes('codestral')||s.includes('magistral')) return 'mistral';
+  if(s.includes('qwen')) return 'qwen';
+  if(s.includes('grok')||s.includes('xai')) return 'xai';
+  if(s.includes('kimi')||s.includes('moonshot')) return 'kimi';
+  if(s.includes('groq')) return 'groq';
+  return 'default';
+}
+function fmtDT(iso){
+  if(!iso) return '—';
+  const d=new Date(iso); if(isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined,{month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function ago(iso){
+  if(!iso) return '';
+  const d=new Date(iso); if(isNaN(d.getTime())) return '';
+  const s=Math.max(0,(Date.now()-d.getTime())/1000);
+  if(s<60) return Math.round(s)+'s ago';
+  if(s<3600) return Math.round(s/60)+'m ago';
+  if(s<86400) return Math.round(s/3600)+'h ago';
+  return Math.round(s/86400)+'d ago';
+}
 function escapeHTML(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function fmt(v){return Number(v||0).toLocaleString();}
 
@@ -404,6 +468,25 @@ async function refresh(){
     document.getElementById('uptimeLabel').textContent=d.uptime;
     document.getElementById('ts').textContent=d.timestamp;
 
+    // Active LLM banner — which model we're saving tokens for, with its logo + datetime.
+    const am=d.active_model||{};
+    const al=document.getElementById('activeLlm');
+    if(am.model){
+      const fam=llmFamily(am.provider,am.model);
+      document.getElementById('alLogo').innerHTML=LLM_LOGOS[fam]||LLM_LOGOS.default;
+      document.getElementById('alModel').textContent=am.model+(am.provider&&am.provider!==fam?' ('+am.provider+')':'');
+      document.getElementById('alSaved').textContent=fmt(am.saved)+' tok';
+      const a=ago(am.timestamp);
+      document.getElementById('alWhen').textContent=fmtDT(am.timestamp)+(a?' · '+a:'');
+      al.classList.remove('idle');
+    }else{
+      document.getElementById('alLogo').innerHTML=LLM_LOGOS.default;
+      document.getElementById('alModel').textContent='awaiting traffic…';
+      document.getElementById('alSaved').textContent='—';
+      document.getElementById('alWhen').textContent='—';
+      al.classList.add('idle');
+    }
+
     const pct=Math.min(Math.max(d.savings_pct||0,0),100);
     document.getElementById('savingsPct').textContent=(d.savings_pct||0)+'%';
     document.getElementById('gaugeArc').style.strokeDashoffset=GAUGE_CIRC*(1-pct/100);
@@ -412,8 +495,10 @@ async function refresh(){
     document.getElementById('beforeTokens').textContent=fmt(d.tokens_before);
     document.getElementById('afterTokens').textContent=fmt(d.tokens_after);
 
-    drawChart(d.series||[]);
-    document.getElementById('chartMeta').textContent=(d.series||[]).length?`last ${(d.series||[]).length} requests`:'awaiting traffic';
+    const ser=d.series||[];
+    drawChart(ser);
+    const lastTs=ser.length?ser[ser.length-1].ts:'';
+    document.getElementById('chartMeta').textContent=ser.length?`last ${ser.length} requests · ${fmtDT(lastTs)}`:'awaiting traffic';
 
     document.getElementById('stats').innerHTML=[
       card('requests',fmt(d.requests),'purple','proxy requests',0,'purple'),
@@ -426,11 +511,14 @@ async function refresh(){
     ].join('');
 
     document.getElementById('runtimeGrid').innerHTML=(d.runtimes||[]).map(runtimeCard).join('');
+    document.getElementById('interceptCount').textContent=d.intercept_ready+'/'+(d.runtimes||[]).length;
     const provPct=d.provider_total?Math.round(d.provider_interceptable/d.provider_total*100):0;
     const provMeta=d.provider_total?` · ${d.provider_interceptable}/${d.provider_total} providers (${provPct}%)`:'';
     document.getElementById('interceptMeta').textContent=`${d.intercept_ready}/${(d.runtimes||[]).length} runtimes${provMeta}`;
     document.getElementById('logSource').textContent=d.log_source||'no log yet';
-    document.getElementById('footMeta').textContent=`${fmt(d.requests)} requests · ${(d.models_seen||[]).slice(0,3).map(m=>m.provider+'/'+m.model).join(' · ')||'no models yet'}`;
+    const sess=d.session||{};
+    const since=sess.started_at?`session since ${fmtDT(sess.started_at)} · `:'';
+    document.getElementById('footMeta').textContent=`${since}${fmt(d.requests)} requests · updated ${d.datetime||d.timestamp}`;
 
     const logEl=document.getElementById('log');
     const lines=d.log_lines||[];
@@ -528,7 +616,24 @@ def get_status():
     for h in history[-48:]:
         inp = int(h.get("total_input_tokens", 0) or 0)
         sv = int(h.get("total_tokens_saved", 0) or 0)
-        series.append({"before": inp + sv, "after": inp, "saved": sv})
+        series.append({"before": inp + sv, "after": inp, "saved": sv, "ts": h.get("timestamp", "")})
+
+    # Active LLM = the most recent intercepted request (provider/model/when).
+    active_model = {}
+    if history:
+        last = history[-1]
+        active_model = {
+            "provider": last.get("provider", ""),
+            "model": last.get("model", ""),
+            "timestamp": last.get("timestamp", ""),
+            "saved": int(last.get("total_tokens_saved", 0) or 0),
+        }
+    sess = sav.get("display_session", {}) if isinstance(sav, dict) else {}
+    session = {
+        "started_at": sess.get("started_at", ""),
+        "last_activity_at": sess.get("last_activity_at", ""),
+        "saved": int(sess.get("tokens_saved", 0) or 0),
+    }
 
     # Models/providers actually intercepted (concrete evidence of capture).
     models_seen, seen = [], set()
@@ -608,12 +713,15 @@ def get_status():
         "ledger_events": lc,
         "series": series,
         "models_seen": models_seen[:8],
+        "active_model": active_model,
+        "session": session,
         "log_lines": log_lines,
         "log_source": log_source,
         "runtimes": runtimes,
         "intercept_ready": ready,
         "intercept_none": none_count,
         "timestamp": time.strftime("%H:%M:%S"),
+        "datetime": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
 
