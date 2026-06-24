@@ -237,34 +237,61 @@ def detect():
     return "claude"
 
 
-def setup_monitor(enable):
-    """Token monitor = machine-level capture proxy + dashboard + tray (install_services.py).
+def _pip(args_):
+    """pip install with a PEP-668 fallback into the user site. Best-effort (never raises)."""
+    base = [sys.executable or "python3", "-m", "pip", "install", "-U"]
+    for extra in ([], ["--user", "--break-system-packages"]):
+        try:
+            subprocess.run(base + extra + args_, check=True, cwd=SOURCE)
+            return True
+        except Exception:
+            continue
+    return False
 
-    Opt-in: a skill install shouldn't silently start system services. With --with-monitor we
-    install the tray dep + register the three services; otherwise we just print how to enable it.
+
+def install_all_deps():
+    """MANDATORY full install — every capability in simplicio-loop, not opt-in. Installs the package
+    with ALL extras (the ONNX models backend: onnxruntime + huggingface_hub + tokenizers + pillow) so
+    `simplicio kompress/router/embed/image` work, plus the menu-bar tray dep. Heavy but complete;
+    `--minimal` skips it. Best-effort: a single heavy dep failing won't abort the install."""
+    spec = ".[onnx]" if os.path.exists(os.path.join(SOURCE, "pyproject.toml")) else "simplicio-loop[onnx]"
+    log("full install: package + ONNX models backend (%s)..." % spec)
+    _pip([spec]) or log("! full-stack pip failed — run manually: pip install '%s'" % spec)
+    tray = ["rumps"] if sys.platform == "darwin" else ["pystray", "pillow"]
+    _pip(tray)
+
+
+def setup_monitor(enable):
+    """Token monitor = machine-level capture proxy + dashboard + tray + always-capture wiring.
+
+    Default-on (the install is complete by default; `--minimal` disables it). Registers the three
+    services (launchd via setup_simplicio.sh on macOS · systemd/Startup via install_services.py
+    elsewhere) and routes Claude + Codex + Hermes through the proxy so the monitor measures them.
     """
     svc = os.path.join(HERE, "install_services.py")
-    if not os.path.exists(svc):
+    setup_sh = os.path.join(HERE, "setup_simplicio.sh")
+    if not enable:
+        log("token monitor SKIPPED (--minimal). Enable later: bash scripts/setup_simplicio.sh")
         return
     py = sys.executable or "python3"
-    if enable:
-        log("token monitor: installing tray deps + capture proxy + dashboard + tray...")
-        deps = ["rumps"] if sys.platform == "darwin" else ["pystray", "pillow"]
-        for dep in deps:
-            subprocess.run([py, "-m", "pip", "install", "--user", "-q", dep], check=False)
+    log("token monitor: capture proxy + dashboard :9090 + tray + always-capture wiring...")
+    if sys.platform == "darwin" and os.path.exists(setup_sh):
+        subprocess.run(["bash", setup_sh], check=False)   # registers launchd + wires + status
+    elif os.path.exists(svc):
         subprocess.run([py, svc, "install"], check=False)
-        log("token monitor live -> http://127.0.0.1:9090  (verify: python3 scripts/install_services.py status)")
-    else:
-        log("token monitor (optional, machine-level): python3 scripts/install_services.py install")
-        log("  -> capture proxy + dashboard :9090 + menu-bar tray; then 'wire' to route a client's base_url")
+        subprocess.run([py, svc, "wire"], check=False)
+    log("token monitor live -> http://127.0.0.1:9090  ·  Claude+Codex+Hermes measured (verify: bash scripts/simplicio-economy.sh status)")
 
 
 def main():
     args = sys.argv[1:]
     is_global = "--global" in args
     skip_operators = "--skip-operators" in args
-    with_monitor = "--with-monitor" in args
-    args = [a for a in args if a not in ("--global", "--skip-operators", "--with-monitor")]
+    # The install is COMPLETE by default — operators, full deps (ONNX models), monitor, tray, wiring.
+    # `--minimal` (alias `--no-monitor`) is the only opt-out, for headless/CI.
+    minimal = "--minimal" in args or "--no-monitor" in args
+    args = [a for a in args if a not in
+            ("--global", "--skip-operators", "--with-monitor", "--minimal", "--no-monitor")]
     target = None
     if "--target" in args:
         i = args.index("--target")
@@ -284,6 +311,8 @@ def main():
 
     print("simplicio-tasks installer - runtime=%s - target=%s" % (runtime, target))
     ensure_operators(skip_install=skip_operators)
+    if not minimal:
+        install_all_deps()
     copy_skills(target)
     copy_hooks(target, is_global)
     ensure_entry(target, cfg["entry"])
@@ -297,7 +326,7 @@ def main():
         log("loop runs self-paced (no stop-hook) — see adapters/%s/README.md" % runtime)
     if cfg["mcp"]:
         log("optional native bind:  simplicio mcp register --client %s" % cfg["mcp"])
-    setup_monitor(with_monitor)
+    setup_monitor(not minimal)
     print("done. use:  /simplicio-tasks finish all the open issues")
 
 

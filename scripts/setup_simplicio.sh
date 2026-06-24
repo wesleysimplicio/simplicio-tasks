@@ -165,12 +165,14 @@ fi
 
 # 7. Load services
 echo "🚀 Starting services..."
-launchctl bootout "gui/$(id -u)/$PROXY_SERVICE" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$LAUNCHD/$PROXY_SERVICE.plist" 2>&1
-launchctl bootout "gui/$(id -u)/$MONITOR_SERVICE" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$LAUNCHD/$MONITOR_SERVICE.plist" 2>&1
-launchctl bootout "gui/$(id -u)/$TRAY_SERVICE" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$LAUNCHD/$TRAY_SERVICE.plist" 2>&1
+# Idempotent (re-install safe): bootout is async, so wait before bootstrap; if the service is
+# still loaded (bootstrap → I/O error), force-restart it with kickstart instead.
+for SVC in "$PROXY_SERVICE" "$MONITOR_SERVICE" "$TRAY_SERVICE"; do
+  launchctl bootout "gui/$(id -u)/$SVC" 2>/dev/null || true
+  sleep 1
+  launchctl bootstrap "gui/$(id -u)" "$LAUNCHD/$SVC.plist" 2>/dev/null \
+    || launchctl kickstart -k "gui/$(id -u)/$SVC" 2>/dev/null || true
+done
 
 sleep 3
 echo ""

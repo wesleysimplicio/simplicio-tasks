@@ -5,6 +5,27 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.5.0] — 2026-06-24
+
+### Changed — install is COMPLETE by default (everything is mandatory)
+- **`scripts/install.sh <runtime>` now installs the whole stack with no flags** — the user gets
+  everything, not opt-in pieces: the two loop operators, the **full Python stack** (the package +
+  the `[onnx]` models backend — onnxruntime + huggingface_hub + tokenizers + pillow), the 6 skills +
+  hooks with the Stop hook wired, AND the always-on Token Monitor (capture proxy + dashboard `:9090`
+  + tray) with Claude + Codex + Hermes routed and measured. The old `--with-monitor` opt-in is gone
+  (now default). The only opt-out is **`--minimal`** (alias `--no-monitor`) for headless/CI.
+- `install_lib.py`: new `install_all_deps()` (PEP-668-robust, fail-open) installs the package + ONNX
+  extras + tray dep; `setup_monitor` is default-on and registers services + runs `wire`.
+- **Verified on this machine**: a full `install.sh claude --global` left onnxruntime 1.27 + hf +
+  tokenizers + pillow + rumps + the `simplicio-loop` package installed, 6/6 skills, both operators on
+  PATH, 3/3 services running, monitor live, and `Claude ✓ · Codex ✓ · Hermes ✓` measured.
+
+### Fixed
+- `setup_simplicio.sh` service registration is now **idempotent on re-install** — bootout is async,
+  so it waits before bootstrap and falls back to `kickstart -k` when the service is still loaded
+  (fixes the `Bootstrap failed: 5: Input/output error` on re-run). Restored all 10 runtimes in the
+  dashboard coverage panel (a prior change had trimmed it to 7).
+
 ## [3.4.1] — 2026-06-24
 
 ### Added — `scripts/update.sh` (one-command update)

@@ -453,16 +453,19 @@ git clone https://github.com/wesleysimplicio/simplicio-loop
 cd simplicio-loop
 
 # install for your runtime (omit <runtime> to auto-detect)
-bash scripts/install.sh <runtime> [--global] [--with-monitor]   # macOS / Linux
+bash scripts/install.sh <runtime> [--global] [--minimal]        # macOS / Linux
 pwsh scripts/install.ps1 <runtime> [-Global]                    # Windows
 # <runtime> ∈ claude codex vscode cursor antigravity kiro opencode gemini aider hermes openclaw
 ```
 
-The installer **pip-installs the two loop operators** (`simplicio-mapper` + `simplicio-cli`,
-auto-handling PEP 668 / externally-managed Python and symlinking the binaries onto `PATH`),
-**copies the 6 skills + hooks**, and **wires the loop's Stop hook**. Add **`--with-monitor`** to also
-start the always-on Token Monitor (capture proxy + dashboard `:9090` + tray) and route Claude +
-Codex through it (measured). Verify any time: `python3 scripts/install_services.py status`.
+**Install is complete by default — it installs everything.** One command sets up the whole stack:
+the two loop operators (`simplicio-mapper` + `simplicio-cli`, auto-handling PEP 668 / externally-managed
+Python and symlinking the binaries onto `PATH`), the **full Python stack** (the package + the `[onnx]`
+models backend: onnxruntime + huggingface_hub + tokenizers + pillow, so `simplicio kompress/router/embed/image`
+work), the **6 skills + hooks** with the loop's Stop hook wired, and the **always-on Token Monitor**
+(capture proxy + dashboard `:9090` + menu-bar tray) with Claude + Codex + Hermes **routed and measured**.
+Pass **`--minimal`** only for headless/CI to skip the heavy deps + the machine services. Verify any time:
+`bash scripts/simplicio-economy.sh status`.
 
 ### Update
 
