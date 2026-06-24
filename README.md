@@ -453,10 +453,25 @@ git clone https://github.com/wesleysimplicio/simplicio-loop
 cd simplicio-loop
 
 # install for your runtime (omit <runtime> to auto-detect)
-bash scripts/install.sh <runtime> [--global]        # macOS / Linux
-pwsh scripts/install.ps1 <runtime> [-Global]        # Windows
+bash scripts/install.sh <runtime> [--global] [--with-monitor]   # macOS / Linux
+pwsh scripts/install.ps1 <runtime> [-Global]                    # Windows
 # <runtime> ∈ claude codex vscode cursor antigravity kiro opencode gemini aider hermes openclaw
 ```
+
+The installer **pip-installs the two loop operators** (`simplicio-mapper` + `simplicio-cli`,
+auto-handling PEP 668 / externally-managed Python and symlinking the binaries onto `PATH`),
+**copies the 6 skills + hooks**, and **wires the loop's Stop hook**. Add **`--with-monitor`** to also
+start the always-on Token Monitor (capture proxy + dashboard `:9090` + tray) and route Claude +
+Codex through it (measured). Verify any time: `python3 scripts/install_services.py status`.
+
+### Update
+
+```bash
+bash scripts/update.sh [<runtime>]    # git pull → reinstall skills/hooks/operators → restart services
+```
+
+`update.sh` stashes local edits, fast-forwards `main`, reinstalls from the fresh source, restarts the
+launchd/systemd services so they run the new code, and prints the live stack + savings.
 
 Or, on Claude Code / Cursor, add it as a marketplace plugin:
 

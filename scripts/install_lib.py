@@ -176,13 +176,21 @@ def ensure_operators(skip_install=False):
     """
     pkgs = [pkg for pkg, _ in OPERATORS]
     if not skip_install:
+        base = [sys.executable, "-m", "pip", "install", "-U"]
         try:
-            subprocess.run([sys.executable, "-m", "pip", "install", "-U", *pkgs],
-                           check=True)
+            subprocess.run(base + pkgs, check=True)
             log("operators installed -> %s" % ", ".join(pkgs))
-        except Exception as e:
-            log("! pip install of operators failed (%s) — install manually: pip install %s"
-                % (e, " ".join(pkgs)))
+        except Exception:
+            # PEP 668 / externally-managed env (Homebrew/Debian python): retry into the user site.
+            try:
+                subprocess.run(base + ["--user", "--break-system-packages"] + pkgs, check=True)
+                log("operators installed (user site) -> %s" % ", ".join(pkgs))
+            except Exception as e:
+                log("! pip install of operators failed (%s) — install manually: pip install %s"
+                    % (e, " ".join(pkgs)))
+    # A --user install can land the console-scripts in a dir not on PATH (e.g. macOS
+    # ~/Library/Python/X.Y/bin). Find each operator binary and symlink it into ~/.local/bin.
+    _link_operator_bins()
     missing = [b for _, b in OPERATORS if shutil.which(b) is None]
     if missing:
         log("! REQUIRED loop operators NOT on PATH: %s" % ", ".join(missing))
@@ -190,6 +198,35 @@ def ensure_operators(skip_install=False):
             % " ".join(pkgs))
     else:
         log("operators verified on PATH: %s" % ", ".join(b for _, b in OPERATORS))
+
+
+def _link_operator_bins():
+    """Symlink operator console-scripts into ~/.local/bin (commonly on PATH) when a --user
+    install dropped them somewhere off PATH. Idempotent; best-effort (never raises)."""
+    import glob
+    local_bin = os.path.join(HOME, ".local", "bin")
+    cand_dirs = [
+        os.path.join(HOME, ".local", "bin"),
+        os.path.join(os.path.dirname(sys.executable), ""),  # interpreter's bin
+    ]
+    cand_dirs += glob.glob(os.path.join(HOME, "Library", "Python", "*", "bin"))   # macOS user scheme
+    cand_dirs += glob.glob(os.path.join(HOME, "AppData", "Roaming", "Python", "*", "Scripts"))  # Windows
+    for _, b in OPERATORS:
+        if shutil.which(b):
+            continue
+        for d in cand_dirs:
+            src = os.path.join(d, b + (".exe" if os.name == "nt" else ""))
+            if os.path.isfile(src):
+                try:
+                    os.makedirs(local_bin, exist_ok=True)
+                    dst = os.path.join(local_bin, os.path.basename(src))
+                    if os.path.islink(dst) or os.path.exists(dst):
+                        os.remove(dst)
+                    os.symlink(src, dst)
+                    log("operator %s -> linked into ~/.local/bin" % b)
+                except OSError:
+                    pass
+                break
 
 
 def detect():

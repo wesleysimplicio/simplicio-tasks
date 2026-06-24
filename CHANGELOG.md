@@ -5,6 +5,22 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.4.1] — 2026-06-24
+
+### Added — `scripts/update.sh` (one-command update)
+- **`bash scripts/update.sh [<runtime>]`** — pulls the latest (`git pull --ff-only`, auto-stashing
+  local edits and restoring them), reinstalls skills/hooks/operators from the fresh source, restarts
+  the always-on services (launchd on macOS · systemd on Linux) so they run the new code, and prints
+  the live stack + savings. Verified end-to-end on macOS.
+
+### Fixed — installer robust on externally-managed Python (PEP 668)
+- **`install_lib.py ensure_operators`** now installs the loop operators (`simplicio-mapper` +
+  `simplicio-cli`) even on Homebrew/Debian Python: it retries `pip install --user --break-system-packages`
+  on a PEP-668 failure, then **symlinks the console-scripts into `~/.local/bin`** (the `--user` scheme
+  can drop them in a dir off `PATH`, e.g. macOS `~/Library/Python/X.Y/bin`). Without this, the operators
+  installed but weren't on `PATH`, so the loop drive would block. Documented `--with-monitor` and the
+  update flow in the README Install section.
+
 ## [3.4.0] — 2026-06-24
 
 ### Added — final loop-orchestrator hardening (the last gaps to 10/10)
