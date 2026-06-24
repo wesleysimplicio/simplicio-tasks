@@ -74,4 +74,6 @@ path + verdict; a missing toolchain BLOCKS, never a fake pass.
 - Never mark an item done without green gates + evidence ("works, not just compiles").
 - Secret-scan every diff; route irreversible ops through the human gate.
 - Unattended 24/7 runs require a cost kill-switch (`ceiling > 0`).
-- Report an honest token-savings line, credited only on a passing quality gate.
+- Report token-savings ONLY when a measured receipt backs it (clamp / signatures-read / cache hit /
+  `deterministic_edit` / `savings_ledger`); never fabricate a figure. No measured economy → no
+  savings line. Credited only on a passing quality gate.

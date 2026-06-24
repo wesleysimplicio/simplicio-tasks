@@ -5,6 +5,18 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+### Changed — savings line is now evidence-gated, not mandatory (honesty fix)
+- **Removed the "end every message with the mandatory savings line" obligation.** That rule forced a
+  figure even with no `savings_ledger` bound, which pressured fabricated baselines/percentages.
+- **New rule (mirrors the `<promise>` evidence gate):** emit a savings line ONLY when a turn actually
+  ran an economy-producing command and the number traces to a **measured receipt** — `orient_clamp`
+  tee (bytes/lines saved), signatures-only read (lines saved), native cache hit (call skipped),
+  `deterministic_edit` (0 edit tokens), or the capture proxy / `savings_ledger` / `savings_harness
+  score`. No measured economy → **no savings line**; never fabricate a baseline or a %.
+- A baseline `%` may be quoted only when an actual control arm was run+measured (`savings_harness`),
+  never estimated from memory. Updated `simplicio-tasks`/`simplicio-loop` SKILLs, AGENTS, README;
+  `_bundle` synced.
+
 ### Added — loop attempt-memory + stall detector (`scripts/loop_journal.py`)
 - **Durable run-journal** `.orchestrator/loop/journal.jsonl` (append-only: `iteration`, `action`,
   `hypothesis`, `gate`, error `fingerprint`) — the loop's working memory of WHAT WAS TRIED, beside

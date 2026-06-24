@@ -221,7 +221,7 @@ flowchart TD
     F2["review comments -> adjust"]
     F3["branch behind main -> additive rebase"]
   end
-  FB -->|"merged and closed"| DONE(["done + evidence + savings line"])
+  FB -->|"merged and closed"| DONE(["done + evidence + measured savings (only if a receipt exists)"])
   WATCH["11 · 24/7 watcher · simplicio-loop evidence-gated promise · max-iterations cap · cost kill-switch · LMCache KV cache warm"]
   FB -. "poll new work / comments / checks" .-> WATCH
   DONE -. "idle until new work" .-> WATCH
@@ -322,7 +322,11 @@ python3 scripts/video_evidence.py verify  --name checkout-demo \
 | Simplicio capture proxy + MCP | 60-95% fewer tokens on tool outputs via a transparent compression daemon |
 
 Savings only count on a verified-correct outcome. Baseline = the cheapest sensible non-orchestrated
-path to the same result. See `references/token-economy.md`.
+path to the same result. **Savings reporting is evidence-gated, not mandatory:** a savings figure is
+shown only when a turn actually ran an economy-producing command and the number traces to a
+measured receipt (clamp tee, signatures-read, cache hit, `deterministic_edit`, `savings_ledger`).
+No measured economy → no savings line; the orchestrator never fabricates a baseline or a percentage.
+See `references/token-economy.md`.
 
 ### 🔎 Running `simplicio-tasks`: economy vs measurement (per runtime)
 
