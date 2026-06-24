@@ -5,6 +5,23 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.9.3] — 2026-06-24
+
+### Fixed — `video_evidence` renders again on the shipped hyperframes (0.7.x)
+- The `video_evidence` worker (`scripts/video_evidence.py`) emitted a composition keyed off
+  invented `data-hf-*` attributes and invoked `hyperframes render --input <file> --output <file>` —
+  neither matches hyperframes 0.7.x, so every demo-video render failed (`FAIL — mp4 (not
+  produced)`). Rewrote the composition to the real schema (`#root[data-composition-id]` + timed
+  `.clip[data-start/data-duration/data-track-index]` elements gated by the framework, faded in via a
+  paused GSAP timeline registered on `window.__timelines`); the project entry point is now
+  `index.html`. Render now passes the **project dir** positionally (`hyperframes render <dir> -o
+  <mp4> -f <fps> -q <quality>`).
+- Screenshots are copied into `<project>/assets/` instead of referenced by a `../..` path, because
+  hyperframes serves the project over a local file server during render — an out-of-tree asset path
+  never resolved. Captions are humanized from the shot filename (ordering prefix stripped, acronyms
+  kept). The missing-toolchain / missing-composition **BLOCK** (never fake-pass) behavior is
+  unchanged — `python3 scripts/check.py` stays green (claims-audit 4/4 · 24 tests).
+
 ## [3.9.2] — 2026-06-24
 
 ### Changed — release sync (no functional changes)

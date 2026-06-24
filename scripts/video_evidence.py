@@ -121,30 +121,53 @@ def _collect_shots(opts):
     return [s for s in shots if os.path.exists(s)]
 
 
-# hyperframes composition: plain HTML with data-* timing tracks (seekable, deterministic).
-# Each screenshot is one timed scene; the renderer walks the timeline to MP4. No JS framework
-# needed — CSS opacity tracks keyed off data-hf-* attributes drive the slideshow.
+# hyperframes composition (schema v0.7.x): the project's `index.html` carries a `#root` wrapper
+# with `data-composition-id` + `data-duration`/`data-width`/`data-height`; each screenshot is one
+# timed `.clip` (the framework gates a clip's visibility by its `data-start`/`data-duration`
+# window), and a paused GSAP timeline registered on `window.__timelines[<id>]` fades each scene in.
+# Deterministic: no Date.now()/Math.random()/runtime fetches (GSAP is a static CDN <script>).
 COMPOSITION = """<!doctype html>
-<html data-hf-fps="{fps}" data-hf-duration="{duration}" data-hf-width="1280" data-hf-height="720">
-<head><meta charset="utf-8"><style>
-  body{{margin:0;background:#0b0f17;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:#e6edf3}}
-  .stage{{position:relative;width:1280px;height:720px;overflow:hidden}}
-  .scene{{position:absolute;inset:0;opacity:0;display:flex;flex-direction:column;
-          align-items:center;justify-content:center;gap:18px}}
-  .scene img{{max-width:92%;max-height:80%;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.5)}}
-  .cap{{font-size:26px;font-weight:600;letter-spacing:.2px}}
-  .brand{{position:absolute;left:24px;bottom:18px;font-size:14px;opacity:.55}}
-</style></head>
-<body><div class="stage" data-hf-stage>
-{scenes}
-  <div class="brand">simplicio-loop · video_evidence · hyperframes</div>
-</div></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width={width}, height={height}" />
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <style>
+    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    html, body {{ width: {width}px; height: {height}px; overflow: hidden; background: #0b0f17; }}
+    body {{ font-family: "Inter", system-ui, Segoe UI, Roboto, sans-serif; color: #e6edf3; }}
+    .clip {{ position: absolute; inset: 0; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; gap: 22px; }}
+    .clip img {{ max-width: 90%; max-height: 78%; border-radius: 12px;
+                 box-shadow: 0 16px 50px rgba(0,0,0,.55); border: 1px solid #1f2733; }}
+    .cap {{ font-size: 27px; font-weight: 600; letter-spacing: .2px;
+            padding: 0 48px; text-align: center; }}
+    .brand {{ position: absolute; left: 26px; bottom: 18px; font-size: 14px; opacity: .5; }}
+  </style>
+</head>
+<body>
+  <div id="root" data-composition-id="main" data-start="0" data-duration="{duration}"
+       data-width="{width}" data-height="{height}">
+{clips}
+    <div class="brand">{brand}</div>
+  </div>
+  <script>
+    window.__timelines = window.__timelines || {{}};
+    const tl = gsap.timeline({{ paused: true }});
+{fades}
+    window.__timelines["main"] = tl;
+  </script>
+</body>
+</html>
 """
 
-SCENE = ('  <section class="scene" data-hf-scene data-hf-start="{start}" data-hf-end="{end}">\n'
-         '    <img src="{src}" alt="{cap}">\n'
-         '    <div class="cap">{cap}</div>\n'
-         '  </section>')
+CLIP = ('      <div class="clip" id="s{n}" data-start="{start}" data-duration="{dur}" '
+        'data-track-index="1">\n'
+        '        <img src="assets/{asset}" alt="{alt}" />\n'
+        '        <div class="cap">{cap}</div>\n'
+        '      </div>')
+
+FADE = '    tl.from("#s{n}", {{ opacity: 0, duration: 0.4 }}, {start});'
 
 
 def cmd_scaffold(opts):
@@ -152,7 +175,6 @@ def cmd_scaffold(opts):
     out = opts.get("out", DEFAULT_OUT)
     title = opts.get("title", "Demo")
     seconds = float(opts.get("seconds", 2.0))
-    fps = int(opts.get("fps", 30))
     os.makedirs(out, exist_ok=True)
     proj = _proj_dir(name, out)
 
@@ -162,23 +184,34 @@ def cmd_scaffold(opts):
             "to capture per-step shots into .orchestrator/tee/web/.")
         sys.exit(2)
 
-    # `npx hyperframes init` scaffolds the project skeleton; best-effort (we still write our
-    # own composition below so the worker is useful even if init is unavailable).
+    # `npx hyperframes init` scaffolds the project skeleton; best-effort (we still write our own
+    # index.html + assets below, so the worker is useful even if init is unavailable).
     if not os.path.isdir(proj):
-        r = _run(["npx", "--yes", "hyperframes", "init", name], cwd=out)
+        r = _run(["npx", "--yes", "hyperframes", "init", name, "--non-interactive",
+                  "--skip-skills", "--skip-transcribe"], cwd=out)
         if r is None:
             log("! npx not found — install Node.js 22+ to use hyperframes")
-    os.makedirs(proj, exist_ok=True)
+    assets = os.path.join(proj, "assets")
+    os.makedirs(assets, exist_ok=True)
 
-    scenes, start = [], 0.0
-    for s in shots:
-        end = round(start + seconds, 3)
-        rel = os.path.relpath(s, proj)
-        cap = "%s — %s" % (title, os.path.splitext(os.path.basename(s))[0])
-        scenes.append(SCENE.format(start=start, end=end, src=rel, cap=_esc(cap)))
-        start = end
-    html = COMPOSITION.format(fps=fps, duration=round(start, 3), scenes="\n".join(scenes))
-    comp_path = os.path.join(proj, "composition.html")
+    # hyperframes renders the project over a local file server, so every asset MUST live inside
+    # the project tree (a ../.. path back to the capture dir would not resolve). Copy each shot
+    # into assets/ in capture order; each becomes one timed .clip in the index.html timeline.
+    clips, fades, start = [], [], 0.0
+    for i, s in enumerate(shots, 1):
+        asset = "frame%02d.png" % i
+        shutil.copy2(s, os.path.join(assets, asset))
+        cap = _pretty_cap(title, s)
+        clips.append(CLIP.format(n=i, start=_fmt(start), dur=_fmt(seconds), asset=asset,
+                                 alt=_esc(os.path.splitext(asset)[0]), cap=_esc(cap)))
+        fades.append(FADE.format(n=i, start=_fmt(start)))
+        start = round(start + seconds, 3)
+    width = int(opts.get("width", 1280))
+    height = int(opts.get("height", 720))
+    brand = opts.get("brand", "github.com/wesleysimplicio/simplicio-loop")
+    html = COMPOSITION.format(width=width, height=height, duration=_fmt(start),
+                              clips="\n".join(clips), fades="\n".join(fades), brand=_esc(brand))
+    comp_path = os.path.join(proj, "index.html")
     with open(comp_path, "w", encoding="utf-8") as f:
         f.write(html)
     log("scaffolded %d-scene composition (%.1fs) -> %s" % (len(shots), start, comp_path))
@@ -187,6 +220,20 @@ def cmd_scaffold(opts):
 
 def _esc(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def _fmt(x):
+    """Seconds → compact HTML attr value (2.0 -> '2', 12.0 -> '12', 2.5 -> '2.5')."""
+    return "%g" % float(x)
+
+
+def _pretty_cap(title, path):
+    """Caption from the shot filename: drop the ordering prefix, humanize, keep ACRONYMS."""
+    base = os.path.splitext(os.path.basename(path))[0]
+    base = re.sub(r"^\d+[-_.]+", "", base)            # strip a leading "03-" ordering prefix
+    label = re.sub(r"[-_]+", " ", base).strip()
+    label = " ".join(w if w.isupper() else w.capitalize() for w in label.split())
+    return ("%s · %s" % (title, label)) if (title and label) else (label or title)
 
 
 def _append_ledger(out, line):
@@ -220,7 +267,7 @@ def cmd_render(opts):
     out = opts.get("out", DEFAULT_OUT)
     issue = str(opts.get("issue", "x"))
     proj = _proj_dir(name, out)
-    comp = os.path.join(proj, "composition.html")
+    comp = os.path.join(proj, "index.html")
 
     # Preflight the toolchain — BLOCK (never fake-pass) when it is missing.
     if _exe("npx") == "npx" and shutil.which("npx") is None:
@@ -235,7 +282,10 @@ def cmd_render(opts):
         _blocked(out, "no composition at %s — run `scaffold` first" % comp)
 
     mp4 = os.path.join(out, "%s-%s.mp4" % (name, issue))
-    cmd = ["npx", "--yes", "hyperframes", "render", "--input", comp, "--output", mp4]
+    fps = str(opts.get("fps", 30))
+    quality = str(opts.get("quality", "standard"))
+    # hyperframes render takes the PROJECT DIR positionally and renders its index.html.
+    cmd = ["npx", "--yes", "hyperframes", "render", proj, "-o", mp4, "-f", fps, "-q", quality]
     log("rendering: %s" % " ".join(cmd))
     r = _run(cmd, cwd=proj)
     if r is None:
@@ -273,7 +323,7 @@ def cmd_verify(opts):
     out = opts.get("out", DEFAULT_OUT)
     name = opts.get("name", "simplicio-demo")
     proj = _proj_dir(name, out)
-    if not os.path.exists(os.path.join(proj, "composition.html")):
+    if not os.path.exists(os.path.join(proj, "index.html")):
         cmd_scaffold(opts)  # exits non-zero if no shots are available
     cmd_render(opts)
 
