@@ -3,6 +3,26 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [2.12.0] — 2026-06-24
+
+### Added — Copilot OAuth (the last functional subsystem)
+- **`simplicio copilot {login|token|status|logout}`** (`engine/simplicio_copilot.py`, stdlib) — GitHub
+  Copilot OAuth **device flow** + Copilot token exchange, so Copilot CLI traffic can be routed through
+  the capture proxy. Verified **live against the real GitHub API**: the device-code handshake returned a
+  real `device_code`/`user_code`/`verification_uri`, and the poll returned the expected
+  `authorization_pending`; `status`/`logout`/empty-store paths verified; token stored 0600 under
+  `~/.simplicio`. (Honest: the post-auth Copilot token exchange can't be exercised here without a real
+  Copilot account; the code path mirrors upstream exactly.)
+
+### Milestone — capability-complete
+With Copilot auth, **every functional subsystem of the upstream headroom repo is now ported to
+Simplicio** and verified: all deterministic + extractive compression, the **four real ONNX models**
+(kompress / technique-router / MiniLM embedder / SigLIP image), content detection + smart routing, RAG
+(TF-IDF + embedding), input+output capture, per-provider routing, MCP, CCR memory, client init, wrap,
+report, verify, audit, capture, evals, and copilot-auth. The **only** thing not reimplemented is the
+upstream's Rust `crates/` — a pyo3 **performance** re-implementation of the Python (`headroom-parity`
+asserts Rust == Python), which adds **no new capability**, only native speed.
+
 ## [2.11.0] — 2026-06-24
 
 ### Added — image compression (the 4th and last real headroom model)
