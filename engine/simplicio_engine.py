@@ -37,6 +37,7 @@ from urllib.parse import urlparse
 __version__ = "1.0.0"
 
 HOME = os.path.expanduser("~")
+HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = Path(os.environ.get("SIMPLICIO_HOME", Path(HOME) / ".simplicio"))
 SAVINGS_PATH = DATA_DIR / "proxy_savings.json"
 LOG_PATH = DATA_DIR / "logs" / "proxy.log"
@@ -46,6 +47,23 @@ MAX_HISTORY = 5000
 # Rough input $/1M tokens by family (savings are estimated, not billed).
 PRICE_PER_M = {"gpt": 0.15, "claude": 0.80, "deepseek": 0.14, "gemini": 0.10,
                "llama": 0.06, "mistral": 0.10, "qwen": 0.08, "default": 0.14}
+
+# Prefer the richer 8-algorithm compression module if present (sibling file).
+# NB: named simplicio_compress (not `compression`) — Python 3.14 ships a stdlib `compression` package.
+try:
+    sys.path.insert(0, HERE)
+    from simplicio_compress import compress as _ext_compress
+except Exception:
+    _ext_compress = None
+
+
+def _exec_sibling(name, rest):
+    """Hand off to a sibling engine module (mcp/memory/init), preserving args."""
+    target = os.path.join(HERE, name)
+    if not os.path.exists(target):
+        print(f"simplicio_engine: {name} not found", file=sys.stderr)
+        return 127
+    os.execv(sys.executable, [sys.executable, target] + list(rest))
 
 
 def _iso_now():
@@ -119,9 +137,14 @@ _PIPELINE = [_algo_strip_ansi, _algo_rule_runs, _algo_dedup_lines, _algo_whitesp
 
 
 def _compress_text(text):
-    """Run the deterministic compression pipeline; keep result only if it shrank."""
+    """Compress one text block — the 8-algorithm module if present, else the inline pipeline."""
     if not text or len(text) < 80:
         return text
+    if _ext_compress is not None:
+        try:
+            return _ext_compress(text)
+        except Exception:
+            pass
     out = text
     for algo in _PIPELINE:
         try:
@@ -448,8 +471,12 @@ def main(argv=None):
     pd = sub.add_parser("doctor", help="show proxy + savings status")
     pd.add_argument("--port", type=int, default=int(os.environ.get("SIMPLICIO_PROXY_PORT", "8788")))
 
-    pm = sub.add_parser("memory", help="memory stats")
-    pm.add_argument("memory_cmd", nargs="?", default="stats")
+    pm = sub.add_parser("memory", help="memory: stats (engine) | remember/recall/forget/list (CCR store)")
+    pm.add_argument("rest", nargs=argparse.REMAINDER)
+    pmcp = sub.add_parser("mcp", help="run the native MCP server (compress/retrieve/stats tools)")
+    pmcp.add_argument("rest", nargs=argparse.REMAINDER)
+    pin = sub.add_parser("init", help="register Simplicio into a client: init <client> [--apply]")
+    pin.add_argument("rest", nargs=argparse.REMAINDER)
 
     args = p.parse_args(argv)
     if args.cmd == "proxy":
@@ -457,7 +484,14 @@ def main(argv=None):
     if args.cmd == "doctor":
         return cmd_doctor(args)
     if args.cmd == "memory":
-        return cmd_memory(args)
+        rest = getattr(args, "rest", [])
+        if not rest or rest[0] == "stats":
+            return cmd_memory(args)  # engine history count — keeps the dashboard's "Total Memories:" parse
+        return _exec_sibling("simplicio_memory.py", rest)
+    if args.cmd == "mcp":
+        return _exec_sibling("simplicio_mcp.py", [])  # the MCP server reads stdin; ignore 'serve'
+    if args.cmd == "init":
+        return _exec_sibling("simplicio_init.py", getattr(args, "rest", []))
     p.print_help()
     return 0
 

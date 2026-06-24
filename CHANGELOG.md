@@ -3,6 +3,30 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [2.3.0] — 2026-06-24
+
+### Added — native engine grows toward feature parity (built by 5 parallel agents, each self-tested)
+- **`engine/simplicio_mcp.py`** — native stdio MCP server (JSON-RPC 2.0) exposing `simplicio_compress`,
+  `simplicio_retrieve`, `simplicio_stats` tools. `simplicio_engine mcp` runs it.
+- **`engine/simplicio_memory.py`** — CCR (compress-cache-retrieve) key-value store with byte-exact
+  lossless recall (zlib+base64), atomic + thread-safe. `simplicio_engine memory remember/recall/forget/list`.
+- **`engine/simplicio_compress.py`** — 8-algorithm deterministic compression (ANSI strip, trailing ws,
+  blank collapse, line dedup, JSON minify, rule-run cap, hex-dump fold, fenced-log fold), idempotent and
+  meaning-preserving. The proxy now uses it (verbose logs ~89-94% saved; clean prose/code untouched).
+- **`engine/simplicio_init.py`** — native client integration writer (mirrors `headroom init`): registers
+  the Simplicio MCP server into codex/claude/copilot/openclaw configs. **Dry-run by default**, `--apply`
+  to write, idempotent. `simplicio_engine init <client>`.
+
+### Verified
+- **systemd activation field-tested on real Linux** (systemd PID 1 in Docker, aarch64): `systemctl start`
+  brought the proxy up, `/health` returned `engine: simplicio`, and `Restart=always` re-spawned it after
+  a kill — the previously-untested gap is now closed. `install_services.py` now sets `SIMPLICIO_HOME` on
+  the services so savings/logs write even under an unset service `$HOME`.
+
+### Fixed
+- The compression module was named `compression`, which **collides with Python 3.14's new stdlib
+  `compression` package** — renamed to `simplicio_compress` so the 8-algo pipeline actually loads on 3.14.
+
 ## [2.2.1] — 2026-06-24
 
 ### Verified — Linux is now field-tested (not just code-complete)

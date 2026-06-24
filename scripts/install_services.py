@@ -44,7 +44,10 @@ PROXY = [PY, NATIVE_ENGINE, "proxy", "--port", PROXY_PORT, "--upstream", UPSTREA
 MONITOR = [PY, str(REPO / "hooks" / "simplicio_dashboard.py")]
 TRAY = [PY, str(REPO / "app" / "simplicio_tray.py")]
 SERVICES = {"proxy": PROXY, "token-monitor": MONITOR, "tray": TRAY}
-ENVS = {"PORT": MONITOR_PORT, "SIMPLICIO_PROXY_PORT": PROXY_PORT, "SIMPLICIO_MONITOR_PORT": MONITOR_PORT}
+# SIMPLICIO_HOME is set explicitly so the proxy can always write savings/logs even when the
+# service runs with an unset/unwritable $HOME (verified necessary in the systemd field-test).
+ENVS = {"PORT": MONITOR_PORT, "SIMPLICIO_PROXY_PORT": PROXY_PORT, "SIMPLICIO_MONITOR_PORT": MONITOR_PORT,
+        "SIMPLICIO_HOME": str(HOME / ".simplicio")}
 
 
 # ── Linux: systemd --user ────────────────────────────────────────────────────
