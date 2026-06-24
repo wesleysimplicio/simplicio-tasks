@@ -59,6 +59,10 @@ try:
     from simplicio_compress_extra import compress_extra as _ext_compress_extra
 except Exception:
     _ext_compress_extra = None
+try:
+    from simplicio_tokens import count_tokens as _count_tokens
+except Exception:
+    _count_tokens = None
 
 
 def _exec_sibling(name, rest):
@@ -82,8 +86,15 @@ def _parse_iso(s):
 
 
 def _toks(text):
-    """Cheap, consistent token estimate (~4 chars/token)."""
-    return max(0, round(len(text) / 4)) if text else 0
+    """Token estimate — the calibrated estimator if present, else ~4 chars/token."""
+    if not text:
+        return 0
+    if _count_tokens is not None:
+        try:
+            return _count_tokens(text)
+        except Exception:
+            pass
+    return max(0, round(len(text) / 4))
 
 
 def _price(model):
@@ -490,6 +501,12 @@ def main(argv=None):
     prp.add_argument("rest", nargs=argparse.REMAINDER)
     pvf = sub.add_parser("verify", help="self-check the whole token-economy stack")
     pvf.add_argument("rest", nargs=argparse.REMAINDER)
+    pau = sub.add_parser("audit", help="audit files/dirs for compression savings opportunity")
+    pau.add_argument("rest", nargs=argparse.REMAINDER)
+    pca = sub.add_parser("capture", help="dry-run: what a request would compress/save (no send)")
+    pca.add_argument("rest", nargs=argparse.REMAINDER)
+    pev = sub.add_parser("evals", help="compression eval + regression gate")
+    pev.add_argument("rest", nargs=argparse.REMAINDER)
 
     args = p.parse_args(argv)
     if args.cmd == "proxy":
@@ -511,6 +528,12 @@ def main(argv=None):
         return _exec_sibling("simplicio_report.py", getattr(args, "rest", []))
     if args.cmd == "verify":
         return _exec_sibling("simplicio_verify.py", getattr(args, "rest", []))
+    if args.cmd == "audit":
+        return _exec_sibling("simplicio_audit.py", getattr(args, "rest", []))
+    if args.cmd == "capture":
+        return _exec_sibling("simplicio_capture.py", getattr(args, "rest", []))
+    if args.cmd == "evals":
+        return _exec_sibling("simplicio_evals.py", getattr(args, "rest", []))
     p.print_help()
     return 0
 

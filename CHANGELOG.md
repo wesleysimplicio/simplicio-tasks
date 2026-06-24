@@ -3,6 +3,23 @@
 All notable changes to **simplicio-loop** are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); the project uses SemVer.
 
+## [2.5.0] — 2026-06-24
+
+### Added — more native commands + quality gates (5 more parallel agents, each self-tested)
+- **`simplicio audit <paths>`** — scan files/dirs and rank how many tokens compression would save.
+- **`simplicio capture --file body.json`** — dry-run analyzer: what a request would compress/save, no send.
+- **`simplicio evals`** — compression eval + **regression gate** (corpus → %saved, asserts prose/code stay
+  byte-identical + idempotence). Doubles as CI: exits non-zero if a change corrupts content or stops saving.
+  Current gate: **4/4 invariants PASS, avg ~44% saved**.
+- **`engine/simplicio_tokens.py`** — calibrated stdlib token estimator (prose ~4.1 c/tok, code ~2.9, json
+  ~1.8). The proxy + capture now measure tokens with it instead of naive chars/4.
+- **`engine/README.md`** — full engine reference (commands, capture mechanism, compression catalog, honest
+  scope).
+
+### Fixed
+- The unified `bin/simplicio` CLI didn't route `wrap`/`report`/`verify` (and the new `audit`/`capture`/`evals`)
+  — `ENGINE_CMDS` now forwards them all. README corrected accordingly.
+
 ## [2.4.0] — 2026-06-24
 
 ### Added — unified CLI + more engine commands (5 more parallel agents, each self-tested)
