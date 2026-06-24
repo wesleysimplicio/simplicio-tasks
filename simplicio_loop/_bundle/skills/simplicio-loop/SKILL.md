@@ -283,7 +283,9 @@ Delete `.orchestrator/loop/` (the `cancel-ralph` analogue). A single STOP signal
 - **Never spin on a dead-end.** Record every attempt in the journal and honour the stall detector:
   K identical-fingerprint failures ⇒ change strategy or escalate, never re-feed the same goal into
   the same failure (`scripts/loop_journal.py`).
-- Emit the standard savings line each turn (see `simplicio-tasks`).
+- Report savings only with a measured receipt (clamp / signatures / cache hit / `deterministic_edit`
+  / ledger) — never a per-turn fabricated figure. No measured economy → no savings line (see
+  `simplicio-tasks` Notes § savings line — evidence-gated).
 
 ## Verifying a good loop (what "good" looks like)
 

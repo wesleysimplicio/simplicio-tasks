@@ -223,15 +223,30 @@ on the STOP signal, budget exhaustion, or a safety halt. Full ten axes + arming 
   identifiers, extension-point names, **Conventional-Commit messages** (repo convention), the
   savings-line format string, and the machine-tier worker-report tokens. Detect the user's language
   from their messages / the skill argument; default to English only if it is genuinely unknown.
-- End every message with the mandatory savings line:
+- **Savings line — evidence-gated, NOT mandatory.** Do NOT end every message with a savings
+  figure. Emit a savings line ONLY when this turn actually RAN a command/technique that produced a
+  **measured** economy, and the number traces to a concrete receipt. No measured economy this turn
+  → emit NO savings line (silence is honest). **NEVER fabricate** a spend, a baseline, or a
+  percentage to fill the format — a made-up number is a contract violation, exactly like a bare
+  `<promise>`. Receipts that count (each a real measurement, not a guess):
+  - `orient_clamp.py` clamped a command's output → bytes/lines saved (the tee record path)
+  - signatures-only read (`simplicio signatures <file>`) → lines saved vs the full file
+  - native response-cache hit (`simplicio cache`) → an LLM call skipped (100% on that call)
+  - `deterministic_edit` applied a decided change → 0 edit tokens (file written mechanically)
+  - the capture proxy / `savings_ledger` / `savings_harness score` → measured spend vs a real baseline
+
+  Format — list only the techniques that actually fired this turn, each with its source:
   ```
-  simplicio-tasks: ~<spent> tokens · baseline ~<control-arm> · saved ~<saved> (<pct>%)
+  savings: signatures 870→65 lines (93%) · clamp 12KB→0.4KB (tee=.orchestrator/tee/…) · cache hit ×1
   ```
-  Back it with REAL numbers from `savings_ledger` when bound; else estimate honestly.
-- **Honest baseline = control arm.** The cheapest sensible NON-orchestrated path to the SAME
-  outcome — a generic `"answer concisely"` pass over only the files genuinely needed, NOT a verbose
-  strawman. Reduction is on OUTPUT/context tokens (reasoning tokens untouched). `saved = baseline −
-  spent`, disclosed approximate. (Delegate to `simplicio-compress`.)
+  When a `savings_ledger`/proxy is bound, report its measured total instead. Absent any measured
+  economy, say nothing about savings.
+- **A baseline % requires an actual control arm — never an imagined one.** Only quote a
+  `saved X%` / `baseline ~N` when you genuinely RAN the control arm and measured it
+  (`savings_harness snapshot` → `score`, fixed tokenizer). The control arm is the cheapest sensible
+  NON-orchestrated path to the SAME outcome (a generic `"answer concisely"` pass over only the
+  files genuinely needed), NOT a verbose strawman. Do NOT estimate a baseline from memory.
+  (Delegate to `simplicio-compress`.)
 - **Savings only counts on a verified-correct outcome** (run-verification + AC gate passed).
   Aggressive compression that fails its gate earns ZERO credit — raw compression is never success.
 - **One-time standing-context compaction:** the orchestrator re-loads its protocol + digest +
