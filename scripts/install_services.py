@@ -62,17 +62,23 @@ def _systemd_dir():
     return d
 
 
+def _systemd_unit(name, cmd):
+    env = dict(ENVS)
+    # Help systemd's minimal env resolve the engine binary if ExecStart isn't absolute.
+    env["PATH"] = f"{HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
+    env_lines = "\n".join(f"Environment={k}={v}" for k, v in env.items())
+    return (
+        "[Unit]\nDescription=Simplicio %s\nAfter=network.target\n\n"
+        "[Service]\nExecStart=%s\nRestart=always\nRestartSec=3\n%s\n\n"
+        "[Install]\nWantedBy=default.target\n"
+        % (name, " ".join(_q(c) for c in cmd), env_lines)
+    )
+
+
 def linux_install():
     d = _systemd_dir()
     for name, cmd in SERVICES.items():
-        env_lines = "\n".join(f"Environment={k}={v}" for k, v in ENVS.items())
-        unit = (
-            "[Unit]\nDescription=Simplicio %s\nAfter=network.target\n\n"
-            "[Service]\nExecStart=%s\nRestart=always\nRestartSec=3\n%s\n\n"
-            "[Install]\nWantedBy=default.target\n"
-            % (name, " ".join(_q(c) for c in cmd), env_lines)
-        )
-        (d / f"simplicio-{name}.service").write_text(unit)
+        (d / f"simplicio-{name}.service").write_text(_systemd_unit(name, cmd))
     subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
     for name in SERVICES:
         subprocess.run(["systemctl", "--user", "enable", "--now", f"simplicio-{name}.service"], check=False)
@@ -93,16 +99,20 @@ def _startup_dir():
     return Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
 
 
+def _windows_bat(name, cmd):
+    pyw = PY.replace("python.exe", "pythonw.exe")
+    exe = pyw if cmd[0] == PY else cmd[0]
+    args = " ".join(f'"{a}"' for a in cmd[1:])
+    # Quoted `set "K=V"` per line — `set K=V & ...` would bake a trailing space into the value.
+    env_set = "\r\n".join(f'set "{k}={v}"' for k, v in ENVS.items())
+    return f'@echo off\r\n{env_set}\r\nstart "" /b "{exe}" {args}\r\n'
+
+
 def windows_install():
     startup = _startup_dir()
     startup.mkdir(parents=True, exist_ok=True)
-    pyw = PY.replace("python.exe", "pythonw.exe")
     for name, cmd in SERVICES.items():
-        exe = pyw if cmd[0] == PY else cmd[0]
-        args = " ".join(f'"{a}"' for a in cmd[1:])
-        env_set = " & ".join(f"set {k}={v}" for k, v in ENVS.items())
-        bat = startup / f"simplicio-{name}.bat"
-        bat.write_text(f'@echo off\r\n{env_set}\r\nstart "" /b "{exe}" {args}\r\n')
+        (startup / f"simplicio-{name}.bat").write_text(_windows_bat(name, cmd))
     print("✅ Windows Startup launchers written to:", startup)
     for name, cmd in SERVICES.items():
         subprocess.Popen([startup / f"simplicio-{name}.bat"], shell=True)  # start now
@@ -156,6 +166,33 @@ def cmd_wire(on=True):
     print(f"✅ {prof}: OPENAI_BASE_URL {'->' if on else 'cleared;'} {target if on else ''}".rstrip())
 
 
+def selftest():
+    """Validate the generated systemd/Windows artifacts on any OS (no install)."""
+    ok = True
+    print(f"⬡ install_services self-test · engine={os.path.basename(engine_bin())} · py={os.path.basename(PY)}")
+    for name, cmd in SERVICES.items():
+        u = _systemd_unit(name, cmd)
+        for key in ("[Unit]", "[Service]", "ExecStart=", "Restart=always", "[Install]", "WantedBy=default.target"):
+            if key not in u:
+                print(f"  ✗ systemd simplicio-{name}: missing {key}"); ok = False
+        if "\nExecStart=\n" in u or u.rstrip().endswith("ExecStart="):
+            print(f"  ✗ systemd simplicio-{name}: empty ExecStart"); ok = False
+    print(f"  {'✓' if ok else '✗'} systemd units ({len(SERVICES)})")
+    wok = True
+    for name, cmd in SERVICES.items():
+        b = _windows_bat(name, cmd)
+        if not b.startswith("@echo off") or 'start "" /b' not in b:
+            print(f"  ✗ windows simplicio-{name}: malformed"); wok = False
+    print(f"  {'✓' if wok else '✗'} windows launchers ({len(SERVICES)})")
+    for name, cmd in SERVICES.items():
+        target = cmd[1] if cmd[0] == PY else cmd[0]
+        exists = os.path.exists(target) or bool(shutil.which(os.path.basename(target)))
+        print(f"  {'✓' if exists else '·'} {name}: {os.path.basename(cmd[0])} {os.path.basename(cmd[1]) if len(cmd) > 1 else ''}")
+    print(f"  ✓ wire target: http://127.0.0.1:{PROXY_PORT}/v1")
+    print("PASS" if (ok and wok) else "FAIL")
+    return 0 if (ok and wok) else 1
+
+
 def cmd_status():
     import socket
     print(f"⬡ Simplicio services · {platform.system()}")
@@ -172,6 +209,8 @@ def main():
     osname = platform.system()
     if action == "status":
         return cmd_status()
+    if action == "selftest":
+        sys.exit(selftest())
     if action == "wire":
         return cmd_wire(True)
     if action == "unwire":

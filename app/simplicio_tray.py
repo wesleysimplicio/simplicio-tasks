@@ -162,7 +162,17 @@ def run_headless():
 
 
 def main():
-    if sys.platform == "darwin":
+    # SIMPLICIO_TRAY_BACKEND=rumps|pystray|headless forces a backend (default: auto by OS).
+    backend = os.environ.get("SIMPLICIO_TRAY_BACKEND", "").lower()
+    if backend == "headless":
+        return run_headless()
+    if backend == "pystray":
+        try:
+            import pystray  # noqa: F401
+            return run_pystray()
+        except ImportError:
+            return run_headless()
+    if backend == "rumps" or sys.platform == "darwin":
         try:
             import rumps  # noqa: F401
             return run_rumps()

@@ -16,6 +16,7 @@ into HTML via placeholder substitution — single-file (deploy-friendly).
 import http.server
 import json
 import os
+import shutil
 import socket
 import subprocess
 import time
@@ -41,8 +42,11 @@ LOGO_CANDIDATES = [
 ]
 PID_FILE = Path("/tmp") / "simplicio-token-monitor.pid"
 PROXY_PORT = os.environ.get("SIMPLICIO_PROXY_PORT", os.environ.get("HEADROOM_PORT", "8788"))
-# Simplicio-branded entrypoint to the capture engine (wraps the real binary in one place).
-ENGINE_BIN = str(REPO_ROOT / "scripts" / "simplicio-engine")
+# Engine call: the bash wrapper on Unix; the binary directly on Windows (no bash there).
+if os.name == "nt":
+    ENGINE_CMD = [shutil.which("headroom") or "headroom"]
+else:
+    ENGINE_CMD = [str(REPO_ROOT / "scripts" / "simplicio-engine")]
 
 # Each runtime: skills LOAD, loop DRIVE, coverage STATE, and crucially the token
 # INTERCEPT tier — how (or whether) the Simplicio capture engine can really capture it:
@@ -561,7 +565,7 @@ def get_status():
                         pass
     cache_hit = round(cache_hit / max(cache_count, 1), 1)
 
-    mr = _run([ENGINE_BIN, "memory", "stats"], timeout=5)  # Simplicio capture engine
+    mr = _run([*ENGINE_CMD, "memory", "stats"], timeout=5)  # Simplicio capture engine
     mem = 0
     for hl in mr.stdout.split("\n"):
         if "Total Memories" in hl:

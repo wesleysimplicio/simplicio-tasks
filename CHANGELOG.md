@@ -10,8 +10,24 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
   the `simplicio-economy.sh` module + cross-platform install) so it is a discoverable, complete
   deliverable. Rebranded the token-economy table's accelerator row to "Simplicio capture proxy".
 - QA pass: monitor verified fully functional — all API fields present, real-time auto-refresh
-  (live token count growing 102,865 → 123,609), no-data/error fallbacks, 0 console errors, tray
-  reading live data.
+  (live token count growing), no-data/error fallbacks, 0 console errors, tray reading live data.
+
+### Fixed (cross-platform hardening)
+- **pystray tray backend verified at runtime** (not just constructed) — renders the menu-bar icon;
+  added `SIMPLICIO_TRAY_BACKEND=rumps|pystray|headless` to force/test a backend.
+- **Windows Startup launcher bug**: `set K=V & ...` baked a trailing space into the value; now uses
+  quoted `set "K=V"` per line.
+- **systemd units** get an explicit `PATH` so the engine binary resolves under systemd's minimal env.
+- **Dashboard engine call is cross-platform**: invokes the binary directly on Windows (the
+  `simplicio-engine` bash wrapper can't run there).
+- Added `python3 scripts/install_services.py selftest` — validates the generated systemd/Windows
+  artifacts on any OS (PASS on macOS).
+
+### Honest caveats
+- Verified end-to-end on **macOS** (dashboard, rumps + pystray trays, launchd, real capture). The
+  **Linux systemd and Windows Startup service activation are NOT yet run on those OSes** — only their
+  generated artifacts are validated. The capture engine is the third-party `headroom-ai` binary.
+  Provider interceptability (141/144) is a catalog estimate, not verified per provider.
 
 ## [1.8.0] — 2026-06-23
 
