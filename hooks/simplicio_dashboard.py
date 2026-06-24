@@ -16,9 +16,9 @@ into HTML via placeholder substitution — single-file (deploy-friendly).
 import http.server
 import json
 import os
-import shutil
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -42,11 +42,8 @@ LOGO_CANDIDATES = [
 ]
 PID_FILE = Path("/tmp") / "simplicio-token-monitor.pid"
 PROXY_PORT = os.environ.get("SIMPLICIO_PROXY_PORT", os.environ.get("HEADROOM_PORT", "8788"))
-# Engine call: the bash wrapper on Unix; the binary directly on Windows (no bash there).
-if os.name == "nt":
-    ENGINE_CMD = [shutil.which("headroom") or "headroom"]
-else:
-    ENGINE_CMD = [str(REPO_ROOT / "scripts" / "simplicio-engine")]
+# Engine call: the native Simplicio engine module, invoked cross-platform via this interpreter.
+ENGINE_CMD = [sys.executable or "python3", str(REPO_ROOT / "engine" / "simplicio_engine.py")]
 
 # Each runtime: skills LOAD, loop DRIVE, coverage STATE, and crucially the token
 # INTERCEPT tier — how (or whether) the Simplicio capture engine can really capture it:
