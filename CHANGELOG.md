@@ -5,6 +5,9 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+### Added
+- README: a **Join the Simplicio Discord** badge (`https://discord.gg/wM6tr7xVb`) in the top badge row.
+
 ## [3.9.3] — 2026-06-24
 
 ### Fixed — `video_evidence` renders again on the shipped hyperframes (0.7.x)
