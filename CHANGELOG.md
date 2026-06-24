@@ -5,6 +5,20 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.7.0] — 2026-06-24
+
+### Added — `scripts/doctor.py` (verify + `--repair`); optional pieces never block
+- **`python3 scripts/doctor.py [--repair]`** (also `bash scripts/simplicio-economy.sh doctor`) checks
+  the whole stack and cleanly separates **REQUIRED** (python3, the two loop operators, the 6 skills,
+  the loop hooks + Stop wire, the always-on capture proxy — `--repair` installs/wires them) from
+  **OPTIONAL** accelerators (the ONNX models backend, the **native Rust core**, the menu-bar tray dep).
+- **Missing an OPTIONAL piece is never a failure and never blocks.** If a user doesn't have Rust (or
+  onnxruntime, or the tray dep), doctor reports it as `○ optional` and the **exit code stays 0** as
+  long as every REQUIRED item is healthy — the Python engine + the deterministic path cover everything.
+  Verified: simulating an absent Rust core still exits 0. `--repair` is PEP-668-robust and best-effort
+  on optionals (it tries to install them but won't fail the run if it can't).
+- The installer now points at it: `python3 scripts/doctor.py --repair` after install. README documents it.
+
 ## [3.6.0] — 2026-06-24
 
 ### Changed — dashboard + tray are ON-DEMAND (only the capture proxy is always-on)

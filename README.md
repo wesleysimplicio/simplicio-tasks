@@ -480,6 +480,20 @@ bash scripts/update.sh [<runtime>]    # git pull → reinstall skills/hooks/oper
 `update.sh` stashes local edits, fast-forwards `main`, reinstalls from the fresh source, restarts the
 launchd/systemd services so they run the new code, and prints the live stack + savings.
 
+### Doctor — verify + repair
+
+```bash
+python3 scripts/doctor.py            # report the whole stack (REQUIRED vs OPTIONAL)
+python3 scripts/doctor.py --repair   # install/wire what's fixable; make everything operational
+# also: bash scripts/simplicio-economy.sh doctor [--repair]
+```
+
+`doctor` separates **REQUIRED** (python3, the two loop operators, the 6 skills, the loop hooks, the
+capture proxy — `--repair` installs/wires them) from **OPTIONAL** accelerators (the ONNX models
+backend, the native **Rust** core, the tray dep). **Missing an optional piece is never a failure and
+never blocks** — the Python engine + the deterministic path cover everything; the exit code is 0 as
+long as every REQUIRED item is healthy.
+
 Or, on Claude Code / Cursor, add it as a marketplace plugin:
 
 ```

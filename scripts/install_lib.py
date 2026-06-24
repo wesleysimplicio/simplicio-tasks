@@ -328,6 +328,7 @@ def main():
     if cfg["mcp"]:
         log("optional native bind:  simplicio mcp register --client %s" % cfg["mcp"])
     setup_monitor(not minimal)
+    log("verify / repair anytime:  python3 scripts/doctor.py --repair  (optional pieces like Rust never block)")
     print("done. use:  /simplicio-tasks finish all the open issues")
 
 

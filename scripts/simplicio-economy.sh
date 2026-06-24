@@ -199,6 +199,7 @@ case "${1:-status}" in
   tray)    shift; cmd_tray "$@" ;;
   wire)    cmd_wire ;;
   unwire)  cmd_unwire ;;
+  doctor)  shift; exec python3 "$SCRIPT_DIR/doctor.py" "$@" ;;   # verify (+ --repair) the whole stack
   capture) shift; cmd_capture "$@" ;;
-  *) echo "Usage: $0 {status|up|monitor [stop]|tray [stop]|wire|unwire|capture <openai|anthropic> [port]}" >&2; exit 1 ;;
+  *) echo "Usage: $0 {status|up|monitor [stop]|tray [stop]|wire|unwire|doctor [--repair]|capture <openai|anthropic> [port]}" >&2; exit 1 ;;
 esac

@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""doctor — verify the whole simplicio-loop stack; `--repair` fixes what's fixable.
+
+Two tiers, and the distinction is the whole point:
+  • REQUIRED   — the orchestrator + token capture need these (python3, the two loop operators, the
+                 6 skills, the loop hooks, the always-on capture proxy). `--repair` installs/wires them.
+  • OPTIONAL   — nice-to-have accelerators (the ONNX models backend, the native Rust core, the
+                 menu-bar tray dep). **Missing them is NOT a failure** — the Python engine + the
+                 deterministic path cover everything. `--repair` installs them best-effort and never
+                 fails the run because an optional piece (e.g. Rust) is absent.
+
+Exit code: 0 if every REQUIRED item is healthy (after repair), else 1. Cross-platform, stdlib only.
+
+Usage:  python3 scripts/doctor.py [--repair] [--json]
+"""
+import argparse
+import glob
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+from pathlib import Path
+
+HOME = Path.home()
+REPO = Path(__file__).resolve().parents[1]
+PROXY_PORT = int(os.environ.get("SIMPLICIO_PROXY_PORT", "8788"))
+PY = sys.executable or "python3"
+DARWIN = sys.platform == "darwin"
+SKILLS = ["simplicio-tasks", "simplicio-loop", "simplicio-orient",
+          "simplicio-review", "simplicio-compress", "simplicio-learn"]
+OPERATORS = [("simplicio-mapper", "simplicio-mapper"), ("simplicio-cli", "simplicio-dev-cli")]
+
+OK, WARN, FAIL = "ok", "warn", "fail"
+GLYPH = {OK: "✓", WARN: "○", FAIL: "✗"}
+
+
+def _port_up(port):
+    try:
+        with socket.create_connection(("127.0.0.1", int(port)), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+def _run(cmd, **kw):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=kw.get("timeout", 900), **{k: v for k, v in kw.items() if k != "timeout"})
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return subprocess.CompletedProcess(cmd, 1, "", "")
+
+
+def _pip(args_):
+    """pip install with a PEP-668 fallback into the user site (best-effort)."""
+    base = [PY, "-m", "pip", "install", "-U"]
+    for extra in ([], ["--user", "--break-system-packages"]):
+        if _run(base + extra + args_, cwd=str(REPO)).returncode == 0:
+            return True
+    return False
+
+
+def _link_operator_bins():
+    """Symlink operator console-scripts into ~/.local/bin when a --user install put them off PATH."""
+    local_bin = HOME / ".local" / "bin"
+    cands = [str(local_bin), os.path.dirname(PY)]
+    cands += glob.glob(str(HOME / "Library" / "Python" / "*" / "bin"))
+    cands += glob.glob(str(HOME / "AppData" / "Roaming" / "Python" / "*" / "Scripts"))
+    for _, b in OPERATORS:
+        if shutil.which(b):
+            continue
+        for d in cands:
+            src = os.path.join(d, b + (".exe" if os.name == "nt" else ""))
+            if os.path.isfile(src):
+                try:
+                    local_bin.mkdir(parents=True, exist_ok=True)
+                    dst = local_bin / os.path.basename(src)
+                    if dst.exists() or dst.is_symlink():
+                        dst.unlink()
+                    os.symlink(src, dst)
+                except OSError:
+                    pass
+                break
+
+
+# ── checks ───────────────────────────────────────────────────────────────────
+def chk_python():
+    v = sys.version_info
+    ok = v >= (3, 8)
+    return dict(name="python3", tier="REQUIRED", status=OK if ok else FAIL,
+                msg="%d.%d.%d" % (v.major, v.minor, v.micro), repair=None)
+
+
+def _operators_ok():
+    return all(shutil.which(b) for _, b in OPERATORS)
+
+
+def chk_operators():
+    missing = [b for _, b in OPERATORS if not shutil.which(b)]
+
+    def repair():
+        _pip([p for p, _ in OPERATORS])
+        _link_operator_bins()
+        return _operators_ok()
+
+    return dict(name="loop operators", tier="REQUIRED",
+                status=OK if not missing else FAIL,
+                msg="simplicio-mapper + simplicio-dev-cli on PATH" if not missing else "missing: " + ", ".join(missing),
+                repair=repair)
+
+
+def chk_skills():
+    root = HOME / ".claude" / "skills"
+    present = [s for s in SKILLS if (root / s).is_dir()]
+
+    def repair():
+        _run(["bash", str(REPO / "scripts" / "install.sh"), "claude", "--global", "--minimal"])
+        return all((root / s).is_dir() for s in SKILLS)
+
+    return dict(name="skills (global)", tier="REQUIRED",
+                status=OK if len(present) == len(SKILLS) else FAIL,
+                msg="%d/6 in ~/.claude/skills" % len(present), repair=repair)
+
+
+def chk_hooks():
+    hooks_ok = (HOME / ".claude" / "hooks" / "loop_stop.py").is_file()
+    wired = False
+    sp = HOME / ".claude" / "settings.json"
+    if sp.is_file():
+        try:
+            d = json.loads(sp.read_text())
+            wired = any("loop_stop.py" in h.get("command", "")
+                        for g in d.get("hooks", {}).get("Stop", []) for h in g.get("hooks", []))
+        except (ValueError, OSError):
+            pass
+    ok = hooks_ok and wired
+
+    def repair():
+        _run(["bash", str(REPO / "scripts" / "install.sh"), "claude", "--global", "--minimal"])
+        return (HOME / ".claude" / "hooks" / "loop_stop.py").is_file()
+
+    return dict(name="loop hooks + Stop wire", tier="REQUIRED", status=OK if ok else FAIL,
+                msg="hooks copied + Stop hook wired" if ok else ("hooks missing" if not hooks_ok else "Stop hook not wired"),
+                repair=repair)
+
+
+def chk_proxy():
+    up = _port_up(PROXY_PORT)
+
+    def repair():
+        if DARWIN:
+            _run(["bash", str(REPO / "scripts" / "setup_simplicio.sh")])
+        else:
+            _run([PY, str(REPO / "scripts" / "install_services.py"), "install"])
+        return _port_up(PROXY_PORT)
+
+    return dict(name="capture proxy", tier="REQUIRED", status=OK if up else FAIL,
+                msg=":%d live (always-on)" % PROXY_PORT if up else ":%d down" % PROXY_PORT, repair=repair)
+
+
+def chk_wire():
+    prof = HOME / ".zshrc"
+    txt = prof.read_text(errors="replace") if prof.is_file() else ""
+    has_a = ("ANTHROPIC_BASE_URL=http://127.0.0.1:%d" % PROXY_PORT) in txt
+    has_o = ("OPENAI_BASE_URL=http://127.0.0.1:%d" % PROXY_PORT) in txt
+    ok = has_a and has_o
+
+    def repair():
+        _run(["bash", str(REPO / "scripts" / "simplicio-economy.sh"), "wire"])
+        t = prof.read_text(errors="replace") if prof.is_file() else ""
+        return ("ANTHROPIC_BASE_URL=http://127.0.0.1:%d" % PROXY_PORT) in t
+
+    return dict(name="always-capture wire", tier="RECOMMENDED", status=OK if ok else WARN,
+                msg="Claude + Codex/OpenAI + Hermes routed" if ok else "not wired (Claude/Codex not measured)",
+                repair=repair)
+
+
+def chk_onnx():
+    mods = ["onnxruntime", "huggingface_hub", "tokenizers", "PIL"]
+    missing = [m for m in mods if not _importable(m)]
+
+    def repair():
+        _pip([".[onnx]" if (REPO / "pyproject.toml").exists() else "simplicio-loop[onnx]"])
+        return not [m for m in mods if not _importable(m)]
+
+    return dict(name="ONNX models backend", tier="OPTIONAL", status=OK if not missing else WARN,
+                msg="kompress/router/embed/image ready" if not missing else "not installed (optional): " + ", ".join(missing),
+                repair=repair)
+
+
+def chk_tray_dep():
+    dep = "rumps" if DARWIN else "pystray"
+    ok = _importable(dep)
+
+    def repair():
+        _pip([dep] if DARWIN else [dep, "pillow"])
+        return _importable(dep)
+
+    return dict(name="menu-bar tray dep", tier="OPTIONAL", status=OK if ok else WARN,
+                msg="%s ready (tray on-demand)" % dep if ok else "%s not installed (optional)" % dep, repair=repair)
+
+
+def chk_rust():
+    # The native Rust core is OPTIONAL — the Python engine works fully without it. Never a failure.
+    built = bool(glob.glob(str(REPO / "rust" / "target" / "release" / "*simplicio*"))) \
+        or _importable("simplicio._core")
+    return dict(name="native Rust core", tier="OPTIONAL", status=OK if built else WARN,
+                msg="built" if built else "not built (optional — `cd rust && maturin build --release` for native speed)",
+                repair=None)  # never auto-built: heavy + needs a Rust toolchain; absence must not block
+
+
+def _importable(mod):
+    import importlib.util
+    try:
+        return importlib.util.find_spec(mod) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+CHECKS = [chk_python, chk_operators, chk_skills, chk_hooks, chk_proxy,
+          chk_wire, chk_onnx, chk_tray_dep, chk_rust]
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(prog="doctor", description="verify + repair the simplicio-loop stack")
+    ap.add_argument("--repair", action="store_true", help="fix the fixable REQUIRED/RECOMMENDED items + install OPTIONAL where possible")
+    ap.add_argument("--json", action="store_true", help="machine-readable output")
+    args = ap.parse_args(argv)
+
+    results = [c() for c in CHECKS]
+
+    if args.repair:
+        for r in results:
+            # Repair anything not OK that has a fixer. OPTIONAL failures stay non-fatal.
+            if r["status"] != OK and r.get("repair"):
+                fixed = False
+                try:
+                    fixed = bool(r["repair"]())
+                except Exception:
+                    fixed = False
+                r["status"] = OK if fixed else r["status"]
+                r["repaired"] = fixed
+        # Re-evaluate from scratch so the final report reflects reality.
+        results = [c() for c in CHECKS]
+
+    if args.json:
+        print(json.dumps([{k: v for k, v in r.items() if k != "repair"} for r in results], indent=2))
+    else:
+        print("⬡ simplicio-loop doctor%s\n" % ("  ·  repair mode" if args.repair else ""))
+        for r in results:
+            print("  %s [%-11s] %-22s %s" % (GLYPH[r["status"]], r["tier"], r["name"], r["msg"]))
+        print()
+        req_bad = [r for r in results if r["tier"] in ("REQUIRED",) and r["status"] == FAIL]
+        rec_bad = [r for r in results if r["tier"] == "RECOMMENDED" and r["status"] != OK]
+        opt_bad = [r for r in results if r["tier"] == "OPTIONAL" and r["status"] != OK]
+        if not req_bad:
+            print("  ✓ all REQUIRED items healthy — the orchestrator + capture are operational.")
+        else:
+            print("  ✗ REQUIRED broken: %s — run:  python3 scripts/doctor.py --repair"
+                  % ", ".join(r["name"] for r in req_bad))
+        if rec_bad and not args.repair:
+            print("  ○ recommended: %s — `--repair` wires it." % ", ".join(r["name"] for r in rec_bad))
+        if opt_bad:
+            print("  ○ optional (fine to skip): %s — absent does NOT block anything."
+                  % ", ".join(r["name"] for r in opt_bad))
+
+    return 1 if any(r["tier"] == "REQUIRED" and r["status"] == FAIL for r in results) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
