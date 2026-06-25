@@ -28,6 +28,16 @@ def test_video_evidence_blocks_without_composition(tmp_path):
     assert "done" not in r.stdout.lower(), "fake-pass! render claimed done:\n%s" % r.stdout
 
 
+def test_video_evidence_playwright_blocks_without_url(tmp_path):
+    # The DEFAULT engine is Playwright session recording; it needs --url. Without it the worker MUST
+    # block (exit 3), never fake a "done" — same never-fake-pass discipline as the hyperframes path.
+    r = _run(["video_evidence.py", "verify", "--name", "x", "--out", str(tmp_path / "v")],
+             cwd=str(tmp_path))
+    assert r.returncode == 3, "expected BLOCKED exit 3, got %d:\n%s" % (r.returncode, r.stdout)
+    assert "blocked" in r.stdout.lower(), r.stdout
+    assert "done" not in r.stdout.lower(), "fake-pass!\n%s" % r.stdout
+
+
 def test_video_evidence_detect_intent():
     r = _run(["video_evidence.py", "detect", "--goal",
               "make a demo video of the login screen"], cwd=REPO)
