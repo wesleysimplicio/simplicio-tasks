@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "simplicio-loop",
-      "source": ".",
+      "source": "./plugin",
       "description": "Super-plugin: autonomous looping orchestrator + 5 satellite skills. Drains any queue of work end-to-end on any runtime, 24/7, behind safety gates and a cost kill-switch."
     }
   ]

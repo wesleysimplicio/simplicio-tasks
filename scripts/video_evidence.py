@@ -1,41 +1,47 @@
 #!/usr/bin/env python3
-"""simplicio-tasks / simplicio-loop — video_evidence worker (demo-video proof via hyperframes).
+"""simplicio-tasks / simplicio-loop — video_evidence worker (demo-video proof, two engines).
 
 The runnable form of the `video_evidence` extension point documented in
-`.claude/skills/simplicio-tasks/references/video-evidence.md`. Produces a **deterministic MP4**
-demonstration video of a screen/feature with **hyperframes** (https://github.com/heygen-com/hyperframes)
-and records it as evidence that a change works. Evidence is ALWAYS a file path + a boolean verdict —
-never the video bytes, frames, or HTML are fed back into the model context (token economy).
+`.claude/skills/simplicio-tasks/references/video-evidence.md`. Produces a demo video of a
+screen/feature and records it as evidence a change works. Evidence is ALWAYS a file path + a boolean
+verdict — never the video bytes, frames, or HTML are fed back into the model context (token economy).
 
-Why hyperframes: it renders HTML/CSS/media compositions to MP4 deterministically — "same input,
-same frames, same output" — so the demo video is reproducible in CI and is a trustworthy artifact
-of "works, not just compiles" (Step 4b). No API keys; local render via headless Chrome + FFmpeg.
+TWO engines, one producer:
+  • **playwright** (DEFAULT — the normal evidence flow): records the REAL browser session driving
+    the screen to a video (`.webm`, → `.mp4` when FFmpeg is present). This is the "works, not just
+    compiles" proof for any UI change (Step 4b).
+  • **hyperframes** (an EXPLICIT custom request only — "make an explainer video of screen X"):
+    renders a deterministic, captioned slideshow of the captured screenshots to MP4
+    (https://github.com/heygen-com/hyperframes) — "same input, same frames, same output", CI-reproducible.
 
-Five verbs:
+Either engine: a missing toolchain yields BLOCKED, never a fake pass.
 
-  detect    Cheap intent gate (no toolchain). Decide whether a goal/work-item is a
-            video-creation request (e.g. `/simplicio-tasks make a demo video of screen X`).
-            Pass the request text via --goal. Exit 0 + "video-task" when it is; exit 0 + "skip"
-            otherwise. Pass --exit-code to instead exit 10 when it IS a video task (for CI `if:`).
-  scaffold  `npx hyperframes init <project>` then write a composition that turns the captured
-            walkthrough screenshots (--frames DIR or --shots a.png,b.png) into a timed MP4 demo.
-  render    `npx hyperframes render` the composition to MP4 under the evidence dir.
-  lint      `npx hyperframes lint` — validate the composition before rendering.
-  verify    scaffold (if needed) → render → append a ledger row → print the MACHINE-tier verdict.
-            This is the gate Step 4b / the loop's evidence gate calls. A missing toolchain
-            (Node 22+, FFmpeg, hyperframes) yields BLOCKED, never a fake pass.
+Verbs:
 
-Pairs with web_verify.py: web_verify drives the real UI and captures per-step screenshots under
-`.orchestrator/tee/web/`; video_evidence assembles those exact screenshots into a narrated,
-deterministic MP4 walkthrough — the demo video the user asked for AND the on-screen proof.
+  detect    Cheap intent gate (no toolchain). Decide whether a goal/work-item is an explicit
+            video-creation request (e.g. `/simplicio-tasks make an explainer video of screen X`) —
+            those route to the hyperframes engine. Exit 0 + "video-task" / "skip"; --exit-code → 10.
+  record    engine=playwright: drive --url with Playwright recording on → a real session video.
+            BLOCK if Node/npx or Playwright is absent, or no video was produced.
+  scaffold  engine=hyperframes: turn captured screenshots (--frames DIR / --shots a.png,b.png) into
+            a hyperframes composition.
+  render    engine=hyperframes: `npx hyperframes render` the composition to MP4.
+  lint      engine=hyperframes: `npx hyperframes lint` — validate the composition before rendering.
+  verify    The gate Step 4b / the loop's evidence gate calls. DEFAULT → `record` (playwright);
+            `--engine hyperframes` → scaffold (if needed) + render. Appends a ledger row, prints the
+            MACHINE-tier verdict (`done|fail|skip|blocked`).
+
+Pairs with web_verify.py: web_verify asserts the UI renders + captures screenshots; video_evidence
+records the moving proof (playwright) or assembles the captioned explainer (hyperframes).
 
 Usage:
-    python3 scripts/video_evidence.py detect --goal "make a demo video of the login screen" [--exit-code]
-    python3 scripts/video_evidence.py scaffold --name login-demo \\
-        --frames .orchestrator/tee/web --title "Login screen" [--seconds 2.0]
-    python3 scripts/video_evidence.py render --name login-demo [--issue 12]
-    python3 scripts/video_evidence.py verify --name login-demo --frames .orchestrator/tee/web \\
-        --title "Login screen" [--issue 12] [--upload --pr N]
+    python3 scripts/video_evidence.py detect --goal "make an explainer video of the login screen" [--exit-code]
+    # normal evidence flow (default = playwright):
+    python3 scripts/video_evidence.py verify --url http://localhost:3000/login \\
+        --name login-demo --expect "Sign in" [--seconds 4] [--issue 12] [--upload --pr N]
+    # explicit custom explainer (hyperframes):
+    python3 scripts/video_evidence.py verify --engine hyperframes --name login-demo \\
+        --frames .orchestrator/tee/web --title "Login screen" [--seconds 2.0] [--issue 12]
 """
 import glob
 import os
@@ -43,6 +49,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 try:  # Windows consoles default to cp1252 and choke on non-ASCII — force UTF-8.
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -304,28 +311,107 @@ def cmd_render(opts):
     sys.exit(0 if ok else 1)
 
 
-def _upload(out, pr, mp4):
+def _upload(out, pr, mp4, engine="hyperframes"):
     """Attach the demo video to the PR as a LINK (never bytes). Best-effort."""
     tag = "evidence-pr%s" % pr
     rel = _run(["gh", "release", "create", tag, "--notes", "video_evidence demo", mp4], cwd=REPO)
     if rel is None:
-        log("! gh not found — skipping upload (MP4 remains at %s)" % mp4)
+        log("! gh not found — skipping upload (video remains at %s)" % mp4)
         return
     if rel.returncode != 0:  # release may already exist — upload into it
         _run(["gh", "release", "upload", tag, mp4, "--clobber"], cwd=REPO)
-    body = ("🎬 video_evidence ✅  demo video rendered with "
-            "[hyperframes](https://github.com/heygen-com/hyperframes) attached to release `%s`" % tag)
+    how = ("[hyperframes](https://github.com/heygen-com/hyperframes)" if engine == "hyperframes"
+           else "Playwright")
+    body = ("🎬 video_evidence ✅  demo video produced with %s attached to release `%s`" % (how, tag))
     _run(["gh", "pr", "comment", pr, "--body", body], cwd=REPO)
     log("uploaded demo video -> release %s, commented on PR #%s" % (tag, pr))
 
 
-def cmd_verify(opts):
+# Playwright NATIVE video — records the REAL browser session to a video file. The other engine
+# (hyperframes) assembles web_verify screenshots into a deterministic slideshow; this one is a live
+# capture of the screen actually driving. `test.use({video})` makes Playwright write a .webm per page.
+PLAYWRIGHT_VIDEO_SPEC = r"""
+const {{ test }} = require('@playwright/test');
+test.use({{ video: {{ mode: 'on', size: {{ width: {width}, height: {height} }} }} }});
+test('video_evidence', async ({{ page }}) => {{
+  await page.goto({url!r}, {{ waitUntil: 'load', timeout: 30000 }});
+  {expect_line}
+  await page.waitForTimeout({hold_ms});
+}});
+"""
+
+
+def cmd_record(opts):
+    """Engine=playwright: drive --url with Playwright recording on -> a real session video.
+
+    BLOCK (never fake-pass) when Node/npx or Playwright is absent, or no video was produced. Output
+    is .webm (Playwright-native); converted to .mp4 when FFmpeg is present. Evidence = path, never bytes.
+    """
     out = opts.get("out", DEFAULT_OUT)
     name = opts.get("name", "simplicio-demo")
-    proj = _proj_dir(name, out)
-    if not os.path.exists(os.path.join(proj, "index.html")):
-        cmd_scaffold(opts)  # exits non-zero if no shots are available
-    cmd_render(opts)
+    issue = str(opts.get("issue", "x"))
+    url = opts.get("url")
+    os.makedirs(out, exist_ok=True)
+    if not url:
+        _blocked(out, "the playwright engine needs --url (the screen to record) — or use --engine hyperframes")
+    if shutil.which("npx") is None:
+        _blocked(out, "Node.js/npx not found — the playwright video engine needs Node 22+ "
+                      "(or use --engine hyperframes)")
+    width = int(opts.get("width", 1280))
+    height = int(opts.get("height", 720))
+    hold_ms = int(float(opts.get("seconds", 4.0)) * 1000)
+    expect = opts.get("expect", "")
+    expect_line = ("await page.getByText(%r, {exact: false}).first().waitFor({timeout: 15000});"
+                   % expect) if expect else ""
+    rec_dir = os.path.join(out, "%s-%s-pw" % (name, issue))
+    spec = PLAYWRIGHT_VIDEO_SPEC.format(url=url, width=width, height=height,
+                                        hold_ms=hold_ms, expect_line=expect_line)
+    spec_path = os.path.join(tempfile.gettempdir(), "video_evidence_pw.spec.js")
+    with open(spec_path, "w", encoding="utf-8") as f:
+        f.write(spec)
+    cmd = ["npx", "--yes", "playwright", "test", spec_path, "--output", rec_dir, "--reporter", "line"]
+    log("recording (playwright): %s" % " ".join(cmd))
+    r = _run(cmd, cwd=REPO)
+    if r is None:
+        _blocked(out, "npx not found — install Node.js 22+ for the playwright engine")
+    stderr = (r.stderr or "").lower()
+    if r.returncode != 0 and "playwright" in stderr and (
+            "not found" in stderr or "no module" in stderr or "install" in stderr):
+        _blocked(out, "Playwright not installed — run `npx playwright install --with-deps chromium`")
+    webms = sorted(glob.glob(os.path.join(rec_dir, "**", "*.webm"), recursive=True))
+    if not webms:
+        _blocked(out, "Playwright produced no video — the run failed before recording "
+                      "(is %s reachable?)" % url)
+    produced = webms[0]
+    mp4 = os.path.join(out, "%s-%s.mp4" % (name, issue))
+    if shutil.which("ffmpeg"):
+        cv = _run(["ffmpeg", "-y", "-i", produced, mp4])
+        if cv is not None and cv.returncode == 0 and os.path.exists(mp4):
+            produced = mp4
+    ok = r.returncode == 0  # session ran clean (expect matched, no test failure)
+    verdict = "video_evidence: %s — demo video (playwright) project=%s file=%s" % (
+        "PASS" if ok else "FAIL", name, produced)
+    _append_ledger(out, verdict)
+    print("done" if ok else "fail")
+    log(verdict)
+    if ok and opts.get("upload") and opts.get("pr"):
+        _upload(out, str(opts["pr"]), produced, engine="playwright")
+    sys.exit(0 if ok else 1)
+
+
+def cmd_verify(opts):
+    # DEFAULT = a live Playwright recording of the screen actually running (the normal evidence
+    # flow — "works, not just compiles"). Hyperframes (a deterministic captioned slideshow) is the
+    # engine for an EXPLICIT custom request only — "make an explainer video of screen X" — selected
+    # with `--engine hyperframes`.
+    if opts.get("engine") == "hyperframes":
+        out = opts.get("out", DEFAULT_OUT)
+        name = opts.get("name", "simplicio-demo")
+        proj = _proj_dir(name, out)
+        if not os.path.exists(os.path.join(proj, "index.html")):
+            cmd_scaffold(opts)  # exits non-zero if no shots are available
+        return cmd_render(opts)
+    return cmd_record(opts)  # playwright = default evidence flow
 
 
 def _parse(args):
@@ -353,9 +439,9 @@ def main():
         sys.exit(2)
     sub, opts = argv[0], _parse(argv[1:])
     {"detect": cmd_detect, "scaffold": cmd_scaffold, "render": cmd_render,
-     "lint": cmd_lint, "verify": cmd_verify}.get(
-        sub, lambda _o: (print("unknown command '%s'. choices: detect scaffold render lint verify"
-                               % sub), sys.exit(2)))(opts)
+     "lint": cmd_lint, "record": cmd_record, "verify": cmd_verify}.get(
+        sub, lambda _o: (print("unknown command '%s'. choices: detect scaffold render lint record "
+                               "verify" % sub), sys.exit(2)))(opts)
 
 
 if __name__ == "__main__":

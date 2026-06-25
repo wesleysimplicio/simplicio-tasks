@@ -78,20 +78,19 @@ Protokoll auf 11 Laufzeiten** aus, und es tut all das mit **aggressiver, ehrlich
 
 ---
 
-## 📘 Offizielles Fähigkeitenverzeichnis (v3.4.0)
+## 📘 Offizielles Fähigkeitenverzeichnis (v3.10.1)
 
 Das vollständige, offizielle Verzeichnis dessen, was `simplicio-tasks` mitbringt — jede Fähigkeit unten ist
-**real, ausführbar und getestet** (`python3 scripts/check.py`: Claims-Audit 4/4 + 27 Tests). Jede verlinkt
+**real, ausführbar und getestet** (`python3 scripts/check.py`: Claims-Audit 4/4 + 28 Tests). Jede verlinkt
 auf ihren ausführlichen Abschnitt und ihren Worker.
 
 | Fähigkeit | Was sie tut | Nachweis / Worker | Details |
 |---|---|---|---|
-| 🎬 **Video-Belege** (`video_evidence`) | Rendert eine **deterministische MP4**-Demo eines Bildschirms/Features mit [hyperframes](https://github.com/heygen-com/hyperframes) — erfüllt `/simplicio-tasks make a demo video of screen X` und dient zugleich als CI-reproduzierbarer Beleg, dass eine UI-Änderung funktioniert | `scripts/video_evidence.py` · BLOCKIERT (niemals Fake-Pass) ohne Node 22+/FFmpeg | [§ Video-Belege](#-video-belege--demo-videos-via-hyperframes) |
+| 🎬 **Video-Belege** (`video_evidence`) | Zeichnet die **echte Browser-Session** als bewegten Beleg auf, dass eine UI-Änderung funktioniert (Playwright, Standard); rendert für eine explizite Erklärvideo-Anfrage (`/simplicio-tasks make a video of screen X`) eine **deterministische, beschriftete MP4** mit [hyperframes](https://github.com/heygen-com/hyperframes) | `scripts/video_evidence.py` · BLOCKIERT (niemals Fake-Pass) ohne die Toolchain | [§ Video-Belege](#-video-belege--playwright-standardmäßig-hyperframes-auf-anfrage) |
 | 🧠 **Versuchsgedächtnis + Stall-Detektor** | Ein dauerhaftes Run-Journal (`.orchestrator/loop/journal.jsonl`) + ein Stall-Detektor, sodass die Schleife **die Strategie ändert, statt zu oszillieren**; inkrementelle Triage (`since`) liest jede Runde nur das Delta | `scripts/loop_journal.py` · `selftest` 9/9 | [§ Anti-Oszillation](#-versuchsgedächtnis--stall-detektor-anti-oszillation) |
 | 🔒 **Fail-closed-Sicherheits-Gate** (`action_gate`) | Ein `PreToolUse`-/git-pre-push-Hook, der Force-Push, History-Rewrite, Massenlöschung, destruktives DDL, Infra-Teardown und secret-behaftete Commits/Pushes **mechanisch blockiert** — Schritt 5 ausführbar gemacht, nicht als Prosa | `hooks/action_gate.py` · `selftest` 15/15 | [§ Sicherheit](#-sicherheit-nicht-verhandelbar) |
 | 🔬 **Lokale Verifikation** | Eine Test-Suite (Worker-Selftests + ein **E2E des Schleifentreibers**, der den nachweis-gegateten Ausgang beweist) + ein **Claims-Audit** (referenzierte Skripte existieren · Zählungen konsistent · `_bundle ≡ source`) — alles lokal, **kein bezahltes CI** | `scripts/check.py` · `scripts/claims_audit.py` · `tests/` | [§ Tests & lokale Prüfungen](#-tests--lokale-prüfungen-kein-bezahltes-ci) |
 | ✅ **Ehrliche Einsparungen** | Die Einsparungszeile ist nun **nachweis-gegatet, nicht obligatorisch** — eine Zahl wird nur mit einem gemessenen Beleg gezeigt (Clamp/Signaturen/Cache/`deterministic_edit`/Ledger); niemals erfunden | Token-Ökonomie-Vertrag | [§ Token-Ökonomie](#-token-ökonomie) |
-| 💳 **Open-Core-Abrechnung** | Ein deterministischer, datenschutzwahrender Meter→Rechnung-Fluss über die Metrik, die die Schleife ohnehin erzeugt (Kill-Switch + `savings_ledger`) — drei Stufen (Seat/Run/Metered) | `scripts/billing_aggregator.py` · `selftest` 11/11 | [PRICING.md](../PRICING.md) |
 
 Zwei Schleifen-**Modi** machen die Beendigung explizit: **converge** (eine einzelne harte Aufgabe — endet
 mit dem nachweis-gegateten `<promise>` oder einer Stall-Eskalation) vs. **drain** (eine Warteschlange — endet,
@@ -123,7 +122,7 @@ vorhanden, deckt das Inline-Protokoll 100 % ab. Beschleuniger werden **automatis
 | 8 | 📊 **agentsview** | [kenn-io](https://github.com/kenn-io/agentsview) | Session-Analytik, Kostenverfolgung, Erkennung blockierter Sessions | **L1** nur SQL |
 | 9 | ⚡ **LMCache** | [LMCache](https://github.com/LMCache/LMCache) | KV-Cache zwischen Schleifenrunden — 40–70 % TTFT-Reduktion bei lokalen Modellen | GPU-Zeit ↓ |
 | 10 | 🗜️ **Simplicio-Capture-Engine** | `engine/simplicio_engine.py` (nativ, nur stdlib; savings-schema-kompatibel mit dem OSS-Projekt [headroom](https://github.com/headroomlabs-ai/headroom)) | Transparenter Capture-Proxy: leitet an den echten Provider weiter, misst + komprimiert deterministisch, schreibt `proxy_savings.json` | **deterministisch** |
-| 11 | 🎬 **video_evidence (hyperframes)** | [hyperframes](https://github.com/heygen-com/hyperframes) | Rendert eine **deterministische MP4**-Demo eines Bildschirms/Features — erfüllt `/simplicio-tasks make a demo video of screen X` UND dient zugleich als CI-reproduzierbarer Beleg, dass eine UI-Änderung funktioniert | Beleg-Produzent |
+| 11 | 🎬 **video_evidence** | Playwright (Standard) · [hyperframes](https://github.com/heygen-com/hyperframes) (auf Anfrage) | Zeichnet die **echte Session** als bewegten Beleg einer UI-Änderung auf (Playwright); rendert mit hyperframes ein **deterministisches, beschriftetes MP4**-Erklärvideo, wenn das Video selbst das Liefergut IST | Beleg-Produzent |
 
 Jeder Skill liegt unter [`.claude/skills/`](../.claude/skills); jeder Beschleuniger hat ein Referenzdokument
 unter `.claude/skills/simplicio-tasks/references/` (der Video-Produzent:
@@ -226,7 +225,7 @@ flowchart TD
   subgraph QG["7 · Quality gates"]
     direction LR
     Q1["AC gate = real DoD"]
-    Q2["WORKS not just compiles · web_verify (Playwright) · video_evidence (hyperframes MP4)"]
+    Q2["WORKS not just compiles · web_verify (Playwright) · video_evidence (Playwright recording · hyperframes on request)"]
     Q3["adversarial review · thermos rubrics"]
   end
   QG --> SG
@@ -301,44 +300,38 @@ loop_journal.py stall --k 3 --exit-code      # PROGRESS → re-feed · STALLED �
 
 ---
 
-## 🎬 Video-Belege — Demo-Videos via hyperframes
+## 🎬 Video-Belege — Playwright standardmäßig, hyperframes auf Anfrage
 
-Die Schleife kann auf Anfrage **Demonstrationsvideos** eines Bildschirms/Features **erstellen** und dieses
-Video als Beleg wiederverwenden, dass eine Änderung funktioniert. Der Produzent ist
-[**hyperframes**](https://github.com/heygen-com/hyperframes) (von HeyGen) — es rendert HTML/CSS/Medien-
-Kompositionen zu einer **deterministischen MP4** („gleiche Eingabe, gleiche Frames, gleiche Ausgabe"), sodass
-die Demo ein CI-reproduzierbares Artefakt ist, keine Wegwerf-Aufnahme. Keine API-Keys; lokales Rendering via
-Headless-Chrome + FFmpeg (Node 22+).
-
-Zwei Wege, auf denen es ausgelöst wird — beide über den Erweiterungspunkt `video_evidence` (Worker
+Die Schleife erzeugt **Demonstrationsvideos** als Beleg, dass eine Änderung funktioniert — **zwei Engines**,
+ein `video_evidence`-Erweiterungspunkt (Worker
 [`scripts/video_evidence.py`](../scripts/video_evidence.py), Vertrag
 [`references/video-evidence.md`](../.claude/skills/simplicio-tasks/references/video-evidence.md)):
 
-1. **Auf Anfrage — das Video IST das Liefergut.** Frage direkt danach und der Orchestrator leitet das
-   Arbeitselement an den hyperframes-Produzenten:
+1. **Standard — der normale Beleg-Ablauf nutzt Playwright.** Nach einer UI-Änderung zeichnet
+   `video_evidence` die **echte Browser-Session** auf, die den Bildschirm steuert (natives Playwright-Video →
+   `.webm`, → `.mp4` mit FFmpeg) — der stärkste „funktioniert, nicht nur kompiliert"-Beleg (Schritt 4b) und
+   ein gültiger nachweis-gegateter `<promise>`.
 
-   ```text
-   /simplicio-tasks make a demo video of the system login screen
-   → detect: video-creation request  → drive the screen with web_verify (per-step screenshots)
-   → scaffold a hyperframes composition  → npx hyperframes render → deterministic MP4
-   → attach the MP4 to the PR as evidence + close with the link
+   ```bash
+   python3 scripts/video_evidence.py verify --url http://localhost:3000/login \
+       --name login-demo --expect "Sign in" --issue 42 [--upload --pr 42]
    ```
 
-2. **Als Beleg — das Video stützt eine Code-Änderung.** Nach einer UI-Änderung ist derselbe MP4-Walkthrough
-   der stärkste „funktioniert, nicht nur kompiliert"-Beleg (Schritt 4b) und ein gültiger nachweis-gegateter
-   `<promise>` für die Schleife — ein Video, das nie gerendert wurde, ergibt **BLOCKED**, niemals einen
-   Fake-Pass.
+2. **Auf Anfrage — ein personalisiertes Erklärvideo nutzt hyperframes.** Wenn das Liefergut selbst ein
+   Video IST („make an explainer video of screen X"), rendert der Orchestrator eine **deterministische,
+   beschriftete Diashow** der `web_verify`-Screenshots mit
+   [**hyperframes**](https://github.com/heygen-com/hyperframes) (von HeyGen — „gleiche Eingabe, gleiche
+   Frames, gleiche Ausgabe", CI-reproduzierbar, keine API-Keys, lokales Rendering via Headless-Chrome +
+   FFmpeg).
 
-Die beiden Beleg-Produzenten verketten sich: `web_verify` (Playwright) erfasst die Screenshots pro Schritt,
-`video_evidence` (hyperframes) fügt sie zu einem beschrifteten, deterministischen MP4-Walkthrough zusammen.
+   ```text
+   /simplicio-tasks make an explainer video of the system login screen
+   → detect: video-creation request → web_verify captures the screens
+   → video_evidence verify --engine hyperframes → deterministic MP4 → attached to the PR
+   ```
+
+Beide Engines: ein Video, das nie aufgezeichnet/gerendert wurde, ergibt **BLOCKED**, niemals einen Fake-Pass.
 Der Beleg ist stets ein **Dateipfad + boolesches Urteil** — niemals Video-Bytes im Kontext (Token-Ökonomie).
-
-```bash
-# one-shot, outside the loop
-python3 scripts/video_evidence.py detect  --goal "record a video of the checkout screen"
-python3 scripts/video_evidence.py verify  --name checkout-demo \
-    --frames .orchestrator/tee/web --title "Checkout" --issue 42 [--upload --pr 42]
-```
 
 ---
 

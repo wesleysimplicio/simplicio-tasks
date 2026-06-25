@@ -145,11 +145,22 @@ def check_bundle_parity():
     return ok, ("bundle ≡ source (skills + hooks)" if ok else "; ".join(drift))
 
 
+def check_plugin_sync():
+    # The lean marketplace plugin tree (plugin/) must mirror source — skills byte-identical,
+    # hooks exactly the wired set. scripts/sync_plugin.py --check is the source of truth.
+    r = subprocess.run([sys.executable, os.path.join(REPO, "scripts", "sync_plugin.py"), "--check"],
+                       capture_output=True, text=True, cwd=REPO)
+    ok = r.returncode == 0
+    detail = [ln for ln in (r.stdout or r.stderr or "").splitlines() if ln.strip()]
+    return ok, ("plugin ≡ source (lean marketplace tree)" if ok else "; ".join(detail[-6:]))
+
+
 CHECKS = [
     ("1 referenced-scripts-exist", check_scripts_exist),
     ("2 extension-point-count", check_extension_count),
     ("3 cited-commands-run", check_commands_run),
     ("4 bundle-parity", check_bundle_parity),
+    ("5 plugin-parity", check_plugin_sync),
 ]
 
 

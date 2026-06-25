@@ -28,7 +28,7 @@ disclosure keeps this file small while contemplating everything.
 | quality loop · safety gates · delivery · feedback | `references/quality-safety-delivery.md` |
 | 24/7 standing loop · arming the watcher | `references/standing-loop-247.md` |
 | front-end proof via Playwright | `references/web-evidence.md` |
-| demo-video creation + proof via hyperframes | `references/video-evidence.md` |
+| demo-video proof (Playwright default · hyperframes on request) | `references/video-evidence.md` |
 
 ## Step 0 — Arm the loop (for a BODY OF WORK) · fast-path skips it
 simplicio-tasks is a loop by default **for a queue / multiple items / a 24-7 drain** — no separate
@@ -170,13 +170,13 @@ reads for API surface), then write a short plan with an AC checklist + complexit
 > **Understand Anything (optional).** If `.understand-anything/knowledge-graph.json` exists, use Understand Anything as the primary orientation — the graph already holds the complete code structure, relationships, and guided tours. Query it via semantic search instead of signatures-only reads.
 
 > **Video-creation work-items (`video_evidence`).** A work-item — or the skill argument itself
-> (e.g. `/simplicio-tasks make a demo video of the login screen`) — may ASK for a demo
-> video. Classify it cheaply in the terminal: `python3 scripts/video_evidence.py detect --goal
-> "<text>"`. A match makes the **demo video itself the deliverable AND the evidence** — route it to
-> the `video_evidence` producer (hyperframes): drive the named screen with `web_verify` to capture
-> per-step screenshots, then `video_evidence verify --name <slug> --frames .orchestrator/tee/web`
-> renders the deterministic MP4 and attaches it to the PR. The AC for such an item is "an MP4 of
-> screen X exists, renders deterministically, and is linked on the PR". Full contract:
+> (e.g. `/simplicio-tasks make an explainer video of the login screen`) — may ASK for a demo video.
+> Classify it cheaply in the terminal: `python3 scripts/video_evidence.py detect --goal "<text>"`.
+> A match makes the **demo video itself the deliverable** — route it to the **hyperframes** engine
+> (`video_evidence verify --engine hyperframes --name <slug> --frames .orchestrator/tee/web`): a
+> deterministic captioned MP4 of the captured screens, attached to the PR. (The ordinary
+> moving-proof flow for a normal UI change uses the **Playwright** engine instead — Step 4b.) The
+> AC for such an item is "a video of screen X exists and is linked on the PR". Full contract:
 > `references/video-evidence.md`.
 
 ## Step 3 — Route (dual-path) + scale
@@ -206,11 +206,11 @@ Never mark done without green gates + evidence; a failure is NOT a blocker — i
 - **4a AC gate (real DoD):** verify EVERY AC explicitly; no placeholder/stub success, no
   `todo!()`/`panic!` in prod paths, reads from context, compiles clean on changed files.
 - **4b WORKS, not just compiles:** RUN it (`--help` + happy path / affected tests). Front-end
-  change → `web_verify` (screenshot + trace, `references/web-evidence.md`). For an extra-strong,
-  CI-reproducible proof of a UI change — or when the item itself asks for a demo — chain
-  `video_evidence` (deterministic MP4 via **hyperframes**, `references/video-evidence.md`):
-  `web_verify` captures the per-step screenshots, `video_evidence` assembles them into a demo
-  video attached to the PR. Compiles-but-never-run = PARTIAL.
+  change → `web_verify` (screenshot + trace, `references/web-evidence.md`). For moving proof of a UI
+  change, `video_evidence verify --url <url>` records the **real session with Playwright** (default
+  engine) → a video attached to the PR. Only when the item ITSELF asks for a personalized explainer
+  ("make a video of screen X") use `--engine hyperframes` (deterministic captioned slideshow).
+  Contract: `references/video-evidence.md`. Compiles-but-never-run = PARTIAL.
 - **4c Adversarial verify (MEDIUM+):** 2–3 independent verifiers prompted to REFUTE + check each
   AC; majority-refute → back to fix. Delegate to `simplicio-review` when loaded. Full: `references/quality-safety-delivery.md`.
 

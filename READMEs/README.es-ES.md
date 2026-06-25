@@ -78,20 +78,19 @@ protocolo en 11 runtimes** y hace todo esto con una **economía de tokens agresi
 
 ---
 
-## 📘 Registro oficial de capacidades (v3.4.0)
+## 📘 Registro oficial de capacidades (v3.10.1)
 
 El listado completo y oficial de lo que incluye `simplicio-tasks` — cada capacidad de abajo es
-**real, ejecutable y testeada** (`python3 scripts/check.py`: claims-audit 4/4 + 27 tests). Cada una
+**real, ejecutable y testeada** (`python3 scripts/check.py`: claims-audit 4/4 + 28 tests). Cada una
 enlaza con su sección detallada y su worker.
 
 | Capacidad | Qué hace | Prueba / worker | Detalles |
 |---|---|---|---|
-| 🎬 **Evidencia en vídeo** (`video_evidence`) | Renderiza una **demo MP4 determinista** de una pantalla/funcionalidad con [hyperframes](https://github.com/heygen-com/hyperframes) — cumple `/simplicio-tasks make a demo video of screen X` y a la vez sirve de prueba reproducible en CI de que un cambio de UI funciona | `scripts/video_evidence.py` · BLOQUEADO (nunca fake-pass) sin Node 22+/FFmpeg | [§ Evidencia en vídeo](#-evidencia-en-vídeo--vídeos-demostrativos-con-hyperframes) |
+| 🎬 **Evidencia en vídeo** (`video_evidence`) | Graba la **sesión real del navegador** como prueba en movimiento de que un cambio de UI funciona (Playwright, por defecto); renderiza un **MP4 determinista con subtítulos** con [hyperframes](https://github.com/heygen-com/hyperframes) para una petición explícita de vídeo explicativo (`/simplicio-tasks make a video of screen X`) | `scripts/video_evidence.py` · BLOQUEADO (nunca fake-pass) sin el toolchain | [§ Evidencia en vídeo](#-evidencia-en-vídeo--playwright-por-defecto-hyperframes-bajo-demanda) |
 | 🧠 **Memoria de intentos + detector de estancamiento** | Un run-journal duradero (`.orchestrator/loop/journal.jsonl`) + un detector de estancamiento para que el bucle **cambie de estrategia en lugar de oscilar**; el triaje incremental (`since`) lee solo el delta de cada turno | `scripts/loop_journal.py` · `selftest` 9/9 | [§ Anti-oscilación](#-memoria-de-intentos--detector-de-estancamiento-anti-oscilación) |
 | 🔒 **Gate de seguridad fail-closed** (`action_gate`) | Un hook `PreToolUse`/git-pre-push que **bloquea mecánicamente** force-push, reescritura de historial, borrado masivo, DDL destructivo, teardown de infra y commits/pushes con secretos — el Paso 5 hecho ejecutable, no prosa | `hooks/action_gate.py` · `selftest` 15/15 | [§ Seguridad](#-seguridad-innegociable) |
 | 🔬 **Verificación local** | Una suite de tests (selftests de workers + un **e2e del driver del bucle** que prueba la salida ligada a evidencia) + una **claims-audit** (los scripts referenciados existen · counts consistentes · `_bundle ≡ source`) — todo local, **sin CI de pago** | `scripts/check.py` · `scripts/claims_audit.py` · `tests/` | [§ Tests y comprobaciones locales](#-tests-y-comprobaciones-locales-sin-ci-de-pago) |
 | ✅ **Ahorro honesto** | La línea de ahorro ahora es **ligada a evidencia, no obligatoria** — solo se muestra un número con un recibo medido (clamp/firmas/caché/`deterministic_edit`/ledger); nunca se fabrica | contrato de economía de tokens | [§ Economía de tokens](#-economía-de-tokens) |
-| 💳 **Facturación open-core** | Un medidor→factura determinista y respetuoso con la privacidad sobre el metering que el bucle ya produce (kill-switch + `savings_ledger`) — tres niveles (asiento/ejecución/medido) | `scripts/billing_aggregator.py` · `selftest` 11/11 | [PRICING.md](../PRICING.md) |
 
 Dos **modos** del bucle hacen explícita la terminación: **converge** (una sola tarea dura — termina
 con el `<promise>` ligado a evidencia o una escalada por estancamiento) vs **drain** (una cola —
@@ -124,7 +123,7 @@ ausente = fallback por LLM.
 | 8 | 📊 **agentsview** | [kenn-io](https://github.com/kenn-io/agentsview) | Analítica de sesiones, seguimiento de coste, descubrimiento de sesiones estancadas | **L1** solo SQL |
 | 9 | ⚡ **LMCache** | [LMCache](https://github.com/LMCache/LMCache) | Caché KV entre turnos del bucle — 40-70% menos de TTFT en modelos locales | Tiempo de GPU ↓ |
 | 10 | 🗜️ **Motor de captura Simplicio** | `engine/simplicio_engine.py` (nativo, solo stdlib; esquema de savings compatible con el proyecto OSS [headroom](https://github.com/headroomlabs-ai/headroom)) | Proxy de captura transparente: reenvía al proveedor real, mide + comprime de forma determinista, escribe `proxy_savings.json` | **determinista** |
-| 11 | 🎬 **video_evidence (hyperframes)** | [hyperframes](https://github.com/heygen-com/hyperframes) | Renderiza una **demo MP4 determinista** de una pantalla/funcionalidad — cumple `/simplicio-tasks make a demo video of screen X` Y a la vez sirve de prueba reproducible en CI de que un cambio de UI funciona | Productor de evidencia |
+| 11 | 🎬 **video_evidence** | Playwright (por defecto) · [hyperframes](https://github.com/heygen-com/hyperframes) (bajo demanda) | Graba la **sesión real** como prueba en movimiento de un cambio de UI (Playwright); renderiza un **MP4 explicativo determinista con subtítulos** con hyperframes cuando el vídeo ES el entregable | Productor de evidencia |
 
 Cada skill vive bajo [`.claude/skills/`](../.claude/skills); cada acelerador tiene un documento de
 referencia bajo `.claude/skills/simplicio-tasks/references/` (el productor de vídeo:
@@ -228,7 +227,7 @@ flowchart TD
   subgraph QG["7 · Quality gates"]
     direction LR
     Q1["AC gate = real DoD"]
-    Q2["WORKS not just compiles · web_verify (Playwright) · video_evidence (hyperframes MP4)"]
+    Q2["WORKS not just compiles · web_verify (Playwright) · video_evidence (Playwright recording · hyperframes on request)"]
     Q3["adversarial review · thermos rubrics"]
   end
   QG --> SG
@@ -303,45 +302,39 @@ loop_journal.py stall --k 3 --exit-code      # PROGRESS → re-feed · STALLED �
 
 ---
 
-## 🎬 Evidencia en vídeo — vídeos demostrativos con hyperframes
+## 🎬 Evidencia en vídeo — Playwright por defecto, hyperframes bajo demanda
 
-El bucle puede **crear vídeos demostrativos** de una pantalla/funcionalidad bajo demanda, y reutilizar
-ese vídeo como prueba de que un cambio funciona. El productor es
-[**hyperframes**](https://github.com/heygen-com/hyperframes) (de HeyGen) — renderiza composiciones
-HTML/CSS/media a un **MP4 determinista** («misma entrada, mismos frames, misma salida»), de modo que
-la demo es un artefacto reproducible en CI, no una grabación desechable. Sin claves de API; render
-local vía Chrome headless + FFmpeg (Node 22+).
-
-Se dispara de dos formas — ambas vía el punto de extensión `video_evidence` (worker
+El bucle produce **vídeos demostrativos** como prueba de que un cambio funciona — **dos motores**, un
+único punto de extensión `video_evidence` (worker
 [`scripts/video_evidence.py`](../scripts/video_evidence.py), contrato
 [`references/video-evidence.md`](../.claude/skills/simplicio-tasks/references/video-evidence.md)):
 
-1. **Bajo demanda — el vídeo ES el entregable.** Pídelo directamente y el orquestador enruta el
-   elemento de trabajo al productor de hyperframes:
+1. **Por defecto — el flujo normal de evidencia usa Playwright.** Tras un cambio de UI,
+   `video_evidence` graba la **sesión real del navegador** manejando la pantalla (vídeo nativo de
+   Playwright → `.webm`, → `.mp4` con FFmpeg) — el recibo más fuerte de «funciona, no solo compila»
+   (Paso 4b) y un `<promise>` válido ligado a evidencia.
 
-   ```text
-   /simplicio-tasks make a demo video of the system login screen
-   → detect: video-creation request  → drive the screen with web_verify (per-step screenshots)
-   → scaffold a hyperframes composition  → npx hyperframes render → deterministic MP4
-   → attach the MP4 to the PR as evidence + close with the link
+   ```bash
+   python3 scripts/video_evidence.py verify --url http://localhost:3000/login \
+       --name login-demo --expect "Sign in" --issue 42 [--upload --pr 42]
    ```
 
-2. **Como prueba — el vídeo respalda un cambio de código.** Tras un cambio de UI, el mismo recorrido
-   en MP4 es el recibo más fuerte de «funciona, no solo compila» (Paso 4b) y un `<promise>` válido
-   ligado a evidencia para el bucle — un vídeo que nunca se renderizó produce **BLOQUEADO**, nunca un
-   falso pase.
+2. **Bajo demanda — un explicativo personalizado usa hyperframes.** Cuando el entregable ES un vídeo
+   («make an explainer video of screen X»), el orquestador renderiza una **presentación determinista
+   con subtítulos** de las capturas de `web_verify` con
+   [**hyperframes**](https://github.com/heygen-com/hyperframes) (de HeyGen — «misma entrada, mismos
+   frames, misma salida», reproducible en CI, sin claves de API, render local vía Chrome headless +
+   FFmpeg).
 
-Los dos productores de evidencia se encadenan: `web_verify` (Playwright) captura las capturas por
-paso, `video_evidence` (hyperframes) las ensambla en un recorrido MP4 con subtítulos y determinista.
-La evidencia es siempre una **ruta de archivo + veredicto booleano** — nunca bytes de vídeo en
-contexto (economía de tokens).
+   ```text
+   /simplicio-tasks make an explainer video of the system login screen
+   → detect: video-creation request → web_verify captures the screens
+   → video_evidence verify --engine hyperframes → deterministic MP4 → attached to the PR
+   ```
 
-```bash
-# one-shot, outside the loop
-python3 scripts/video_evidence.py detect  --goal "record a video of the checkout screen"
-python3 scripts/video_evidence.py verify  --name checkout-demo \
-    --frames .orchestrator/tee/web --title "Checkout" --issue 42 [--upload --pr 42]
-```
+Cualquiera de los dos motores: un vídeo que nunca se grabó/renderizó produce **BLOQUEADO**, nunca un
+falso pase. La evidencia es siempre una **ruta de archivo + veredicto booleano** — nunca bytes de
+vídeo en contexto (economía de tokens).
 
 ---
 

@@ -30,15 +30,16 @@ deps of `pip install simplicio-loop` (the loop BLOCKS if either is absent):
 The AI decides; the operators act. See `.claude/skills/simplicio-loop/SKILL.md` § Bound operators
 and `.claude/skills/simplicio-tasks/references/extension-points.md` § bound operators.
 
-## Video evidence (hyperframes)
+## Video evidence (Playwright by default · hyperframes on request)
 
-The loop can **create demo videos** of a screen/feature on request
-(`/simplicio-tasks make a demo video of screen X`) and reuse them as proof a change works.
-The `video_evidence` extension point (#44) binds
-[hyperframes](https://github.com/heygen-com/hyperframes) — deterministic HTML→MP4 render (Node 22+
-+ FFmpeg, no API keys). It chains after `web_verify`: Playwright captures the per-step screenshots,
-hyperframes assembles them into a captioned, deterministic MP4 walkthrough attached to the PR.
-Worker: `scripts/video_evidence.py`; contract:
+The loop produces **demo videos** as proof a change works — two engines, one `video_evidence`
+extension point. The **normal evidence flow uses Playwright**: `video_evidence verify --url …`
+records the **real browser session** driving the screen (`.webm`, → `.mp4` with FFmpeg) — the
+"works, not just compiles" moving proof for any UI change. **hyperframes** is used **only for an
+explicit custom request** — *"make an explainer video of screen X"* — rendering a deterministic,
+captioned slideshow of the `web_verify` screenshots
+([hyperframes](https://github.com/heygen-com/hyperframes), Node 22+ + FFmpeg, no API keys). Worker:
+`scripts/video_evidence.py`; contract:
 `.claude/skills/simplicio-tasks/references/video-evidence.md`. A missing toolchain BLOCKS, never a
 fake pass.
 
@@ -68,6 +69,12 @@ Or as a marketplace plugin:
 /plugin marketplace add wesleysimplicio/simplicio-loop
 /plugin install simplicio-loop@simplicio
 ```
+
+The marketplace install carries only the **lean `plugin/` subdirectory** (the 6 skills + the 5
+wired hooks) — `.claude-plugin/marketplace.json` `source` points at `./plugin`, so the pip-only
+assets (capture proxy `engine/`, token-monitor dashboard, `rust/`) are NOT copied into a user's
+plugin cache. `plugin/` is generated from source by `python3 scripts/sync_plugin.py` (run it after
+editing skills or a wired hook); `scripts/check.py` fails if `plugin/` drifts from source.
 
 ## Use
 
