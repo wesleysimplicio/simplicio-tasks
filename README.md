@@ -75,9 +75,13 @@ and keeps watching **24/7** for new work — all behind safety gates and a hard 
 Three things make it different: it is a **super-plugin of focused skills**, it runs the **same
 protocol on 11 runtimes**, and it does all of this with **aggressive, honest token economy**.
 
+<p align="center">
+  <img src="assets/simplicio-loop-infographic.png" alt="simplicio-loop — the whole system at a glance: 6 core skills, 5 satellites, 5 accelerators, 48 extension points, 11 runtimes, up to 96% fewer tokens" width="920" />
+</p>
+
 ---
 
-## 📘 Official capability record (v3.4.0)
+## 📘 Official capability record (v3.9.3)
 
 The complete, official roster of what `simplicio-tasks` ships — every capability below is **real,
 runnable, and tested** (`python3 scripts/check.py`: claims-audit 4/4 + 24 tests). Each links to its
@@ -532,7 +536,7 @@ gate + secret-scan on. With `ceiling = 0` the watcher refuses to run unattended 
   mass-file delete → stop and ask. Headless + no approver → remove the destructive capability.
 - **Enforced, not just promised** — `hooks/action_gate.py` is a **fail-closed** `PreToolUse` /
   git-pre-push hook that mechanically blocks the above (and secret-laden commits) *before* they run.
-  The safety contract holds even if the model forgets it. `selftest` proves the ruleset (14/14).
+  The safety contract holds even if the model forgets it. `selftest` proves the ruleset (15/15).
 - **4-state pre-execution verdict** — optimization may never raise a command's risk tier.
 - **Trust-before-load** — perception-shaping config (clamp profiles, suppression lists) is
   untrusted until a human reviews and hash-pins it.
