@@ -5,6 +5,18 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.14.0] — 2026-06-29
+
+### Changed
+- **The loop preflight now auto-updates the operators to their latest release.** Before iteration 1,
+  `simplicio-loop` runs `python3 -m pip install -qU simplicio-mapper simplicio-cli` (with a PEP-668
+  `--user --break-system-packages` fallback) so every run uses the newest mapper/dev-cli — no manual
+  re-install needed to pick up a new `simplicio-mapper`. **Fail-open and offline-safe**: a
+  network/pip failure (or a deliberate pin) leaves the installed build in place and the loop
+  proceeds; a still-missing operator AFTER the attempt is the existing hard BLOCK. Runs once per
+  loop preflight, not per turn. Updated `simplicio-loop/SKILL.md` (preflight block + phase table);
+  mirrored into `plugin/` and `_bundle/`.
+
 ## [3.13.0] — 2026-06-29
 
 ### Changed
