@@ -52,12 +52,19 @@ hard dependencies of the `simplicio-loop` package (`pip install simplicio-loop` 
 | **simplicio-mapper** | `simplicio-mapper` | `orient` / `recall` | **Survey** — maps the repo(s) into `.simplicio/*.json` (project-map, precedent-index, symbol-index, call-graph, docs). Two-tier (v0.9+): `macro` is an instant shallow skeleton (no content reads), `scan` returns that skeleton now and runs the deep index in the background, `status` reports the deep-pass phase. This survey, not an ad-hoc LLM read, is what feeds the goal each turn. |
 | **simplicio-dev-cli** | `simplicio-dev-cli` | `execute` / `deterministic_edit` / `validate` / `diagnostics` | **Operate** — applies a DECIDED change through its 6-layer contract (mapper context → precedent → prompt → diff → test → verify, ≤3 retries). The CLI edits and verifies; the AI does not hand-write the diff. |
 
-**Preflight (MANDATORY, BLOCKING).** Before iteration 1, confirm both operators are on PATH:
+**Preflight (MANDATORY, BLOCKING).** Before iteration 1, auto-update both operators to their latest
+release (so every run uses the newest `simplicio-mapper`/`simplicio-cli`), then confirm both are on
+PATH:
 ```bash
-simplicio-mapper --version   # survey operator
+# Always run the loop on the latest operators. FAIL-OPEN: offline / no-pip / a pin keeps the
+# currently-installed build; this never blocks. Runs ONCE per loop preflight, not per turn.
+python3 -m pip install -qU simplicio-mapper simplicio-cli 2>/dev/null \
+  || python3 -m pip install -qU --user --break-system-packages simplicio-mapper simplicio-cli 2>/dev/null || true
+simplicio-mapper --version   # survey operator (now latest)
 simplicio-dev-cli --help     # action operator (pkg simplicio-cli; exposes `simplicio-dev-cli`)
 ```
-The action binary is `simplicio-dev-cli` (from `pip install simplicio-cli`) — NOT the bare
+The auto-update is best-effort and offline-safe — a network/pip failure leaves the working version
+in place and the loop proceeds. The action binary is `simplicio-dev-cli` (from `pip install simplicio-cli`) — NOT the bare
 `simplicio`, which is reserved for the separate `simplicio-runtime` and is not what this loop
 binds. `simplicio-dev-cli` has no `--version` subcommand; `--help` exiting 0 is the readiness
 proof. If either operator is missing, do NOT fall back to LLM survey/editing — STOP and emit
@@ -89,7 +96,7 @@ merge/close gates); the operators do survey + apply:
 
 | Phase | Operator | Command |
 |---|---|---|
-| Preflight (before iteration 1) | both | `simplicio-mapper --version` · `simplicio-dev-cli --help` → BLOCK if missing |
+| Preflight (before iteration 1) | both | `python3 -m pip install -qU simplicio-mapper simplicio-cli` (auto-update to latest, fail-open) → `simplicio-mapper --version` · `simplicio-dev-cli --help` → BLOCK if missing |
 | Survey (loop start; multi-repo: per root) | mapper | `simplicio-mapper scan . --json` (instant macro + deep index in background; `--sync`/`--await` to block) → `.simplicio/*.json`. `index . --json` for a forced synchronous build |
 | Loop contract step 2 — Triage (every turn) | mapper | re-read `.simplicio/*.json`; `simplicio-mapper macro . --json` for an instant skeleton, or `scan`/`status` to refresh if the tree changed |
 | Loop contract step 3 — Work the goal | dev-cli | `simplicio-dev-cli task "<decided change>" --target <file> [--json]` |
