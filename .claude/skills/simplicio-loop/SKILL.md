@@ -103,7 +103,7 @@ merge/close gates); the operators do survey + apply:
 | Evidence-gated `<promise>` / `simplicio-tasks` Step 4b | dev-cli | the operator's passing test+verify pass = in-turn evidence |
 
 One turn: `preflight → survey (mapper) → triage (re-read survey) → DECIDE (AI) → operate
-(simplicio-dev-cli task: apply+test+retry ≤3×) → <promise> only if the operator's gate passed`.
+(simplicio-dev-cli task: apply+test+retry ≤3×) → watcher-gate (independent re-execution) → <promise> only if all gates passed`.
 
 ## Video evidence producer (hyperframes) — demo videos as proof
 
@@ -190,7 +190,11 @@ detector below. It is the difference between a loop that converges and one that 
    AC-scoped change; the **`simplicio-dev-cli` operator APPLIES and verifies it**
    (`simplicio-dev-cli task "<change>" --target <file>`) — do not hand-edit inside the loop. End EVERY
    iteration with a short, concrete verification — the operator's passing test run, or one gate /
-   command / `file:line` receipt. If the actual edit surface expands, rerun `impact_audit.py` with
+   command / `file:line` receipt. **After the operator passes, the watcher-gate re-runs
+   independently** — a separate agent/PID re-executes the work and writes
+   `.orchestrator/loop/watcher_state.json` with `{"match": true, "status": "MEASURED"}` only when
+   `reported == watcher.recomputed_truth`. A `match: false` or missing watcher state is treated as
+   `UNVERIFIED` and gates the promise. If the actual edit surface expands, rerun `impact_audit.py` with
    the new seeds/cover and treat uncovered reverse dependents as failed verification; use
    `--fail-on medium` for shared/public contracts or signature changes. If the change crosses
    UI/API/service boundaries, rerun
@@ -206,7 +210,10 @@ detector below. It is the difference between a loop that converges and one that 
    (`loop_journal.py stall`): if the loop is STALLED, it does NOT blindly re-feed the same goal —
    it switches strategy or escalates (§ Run-journal + stall detector).
 5. **Exit** by emitting the sentinel `<promise>EXACT TEXT</promise>` — and ONLY when every
-   acceptance criterion is met AND a real gate passed **in the SAME turn** (`evidence_required`).
+   acceptance criterion is met AND a real gate passed **in the SAME turn** (`evidence_required`)
+   AND the **watcher-gate** confirms the result (`watcher_state.json` with `match: true` /
+   `status: MEASURED`). The watcher re-executes the work independently before the promise is
+   honored — corrective gate per Asolaria N-Nest pattern.
 
 ## Two loop modes (different jobs, different termination)
 
@@ -217,7 +224,7 @@ for a single goal, `drain` for a work-queue.
 | | `converge` (single hard task) | `drain` (a queue of items) |
 |---|---|---|
 | Wants | depth — keep changing strategy until ONE thing passes | breadth — clear many independent items, idempotently |
-| Each turn | triage `since` last turn (incremental) → one AC-scoped change → verify → journal | claim next open item → implement → deliver → re-query source |
+| Each turn | triage `since` last turn (incremental) → one AC-scoped change → verify → watcher-gate → journal | claim next open item → implement → deliver → re-query source |
 | **Termination** | the evidence-gated `<promise>` fires, OR the **stall detector** says STALLED and escalates (below) | the source re-query returns empty for **K consecutive rounds** (`dry≥2`) AND the working set is idle |
 | Anti-pattern it avoids | oscillation (retrying the same dead-end) | missing late-arriving work (stops too early) |
 
@@ -273,11 +280,16 @@ This upgrades invariant 3 (Deterministic continuation): the next iteration re-fe
 the attempt memory** — and a STALLED loop changes course instead of repeating itself. It also makes
 resume real: a fresh process reads the journal and continues without re-deriving prior turns.
 
-## The promise is evidence-gated (the simplicio hardening)
+## The promise is evidence-gated (the simplicio hardening) + watcher-gate (pre-promise)
 
 The classic Ralph loop trusts the model to be honest. We do not. A `<promise>` is accepted
-only if, in the SAME turn, there is concrete evidence the work is truly done:
+only if, in the SAME turn, there is concrete evidence the work is truly done, AND the
+**watcher-gate** has independently verified the result:
 
+- the **watcher-gate** itself (Asolaria N-Nest Corrective Gate) — a separate agent/PID
+  re-executes the work and compares results; `.orchestrator/loop/watcher_state.json` is written
+  with `{"match": true, "status": "MEASURED"}` only when `reported == watcher.recomputed_truth`,
+  or
 - the run-verification gate passed ("works, not just compiles" — `simplicio-tasks` Step 4b) —
   the `simplicio-dev-cli` operator's passing test+verify pass (its contract step 5/6) satisfies this, or
 - the flow coverage gate passed for a mixed front/back/service change —
@@ -297,15 +309,74 @@ only if, in the SAME turn, there is concrete evidence the work is truly done:
   the feature works end-to-end. This is the strongest "works, not just compiles" receipt for a UI
   change, and is the REQUIRED evidence when the goal was itself "make a demo video of screen X".
 
-A `<promise>` with no evidence in-turn is a **contract violation** — the capture hook ignores
-it (does not raise `done`) and the loop continues. **Never output a false promise to escape
-the loop.** This wires the loop directly into the repo's hard rule: *never close work without a
-merged PR or concrete evidence.*
+A `<promise>` with no evidence in-turn — OR with a failing watcher-gate — is a **contract
+violation**: the capture hook ignores it (does not raise `done`) and the loop continues.
+**Never output a false promise to escape the loop.** This wires the loop directly into the
+repo's hard rule: *never close work without a merged PR or concrete evidence.*
 
 **Closing is evidence-gated too (no false positives).** Declaring an item done — or closing an
 issue — requires BOTH a live source re-query (the item is actually still open right now) AND
 concrete evidence in the code or a linked/merged PR. A self-reported "done" with no live state
 and no artifact is a false positive and is rejected, exactly like a bare promise.
+
+## Claims-gate discipline — MEASURED/UNVERIFIED tagging
+
+Every claim the loop makes — in the journal, in triage, in the exit promise, or in any
+turn output — MUST be tagged with its evidence class. This is the Asolaria claims-gate
+discipline, absorbed into simplicio-loop so no output escapes without a truth-class label.
+
+**Two tags, no exceptions:**
+
+| Tag | Meaning | When to use |
+|-----|---------|-------------|
+| `MEASURED\|` | The claim is backed by in-turn, concrete, non-model evidence | A passing gate, a `file:line` receipt, a `diff --stat`, a test log, a live API response, or any artifact the loop itself did NOT hallucinate |
+| `UNVERIFIED\|` | The claim is an inference, a plan, a hypothesis, or a best-effort summary the model makes without mechanical proof | Triage notes, hypotheses in the journal, proposed next actions, stall analysis, or any claim the loop cannot prove this turn |
+
+**Every `loop_journal.py` output is tagged.** The `record` command tags passing gates
+`MEASURED\|` and failing/blocked ones `UNVERIFIED\|`. `resume` and `status` prefix every
+summary line. The stall verdict is `MEASURED\|` when it reports concrete fingerprint matches,
+`UNVERIFIED\|` when it recommends a next action.
+
+**The eight rules** (from Asolaria's claims-gate contract) enforce this mechanically:
+
+| # | Rule | Meaning |
+|---|------|---------|
+| 1 | **ground impact before severity** | Tag the impact (what actually broke/failed) first; the severity label follows only if measurable. |
+| 2 | **no flat tuples** | Never output a bare `(MEASURED\|..., UNVERIFIED\|...)` tuple without a sentence explaining each. |
+| 3 | **mirrors != authority** | A mirror/duplicate of a source is UNVERIFIED unless the loop independently checks the source. |
+| 4 | **cylinders ≠ levels** | A numeric or categorical tag (iteration N, severity X) is not a claims-gate tag — always add `MEASURED\|` or `UNVERIFIED\|` explicitly. |
+| 5 | **owning gate, not transcript** | The loop owns its claims-gate tags — it does NOT copy tags from transcript or tool output; it RE-tags every claim with its own assessment. |
+| 6 | **missing ≠ clean-zero** | Absence of evidence is not evidence of absence — tag unresolved signals as `UNVERIFIED\|`, never skip the tag because nothing failed. |
+| 7 | **real lane** | Tag every claim in the output lane the user sees (scratchpad, journal, triage, promise), not just internal debug lines. |
+| 8 | **source ≠ live** | A source reference (e.g., a linked file on disk) is UNVERIFIED until the loop re-reads it this turn; a cached source is never `MEASURED\|`. |
+
+**How to apply each turn:**
+
+```
+# triage output — hypothesis, not proof
+UNVERIFIED| root cause is likely a race in the connection pool
+
+# journal record on a passing gate
+MEASURED| py_test --gate pass --fingerprint - (all 47 tests green)
+
+# journal record on a failing gate
+UNVERIFIED| integration/gate fail -- fingerprint a3b2c1 -- retry with longer timeout
+
+# stall verdict
+MEASURED| STALLED -- 3 identical fingerprints, dead-end actions: ["retry fetch"]
+
+# exit promise
+MEASURED| <promise>All acceptance criteria met</promise> -- verified by test run, flow audit, and task anchor gate
+
+# watcher-gate (pre-promise verification)
+MEASURED| watcher_state.json match:true -- agent PID result == watcher PID recomputed truth
+UNVERIFIED| watcher_state.json missing or match:false -- watcher disagrees, promise rejected
+```
+
+**The eight-rule checklist is appended to every loop initialization and every triage step**
+(see § The loop contract step 2): review every output claim against rules 1–8 before
+proceeding. The `loop_journal.py claims-gate --check` helper audits any output blob for
+untagged claims.
 
 ## Binding the hook (deterministic, near-zero token)
 
@@ -315,7 +386,7 @@ Where the host runtime supports lifecycle hooks, bind the two cross-platform hoo
 | Hook | Fires | Job |
 |---|---|---|
 | `afterAgentResponse` → `loop_capture.py` | after every turn | extract `<promise>…</promise>`; if it exactly equals `completion_promise` AND in-turn evidence exists → `touch .orchestrator/loop/done`. Fire-and-forget, `exit 0`. Never stops the loop itself. |
-| `stop` → `loop_stop.py` | when the turn ends | guard clauses, each ends the loop cleanly (remove state, `exit 0`): (1) no scratchpad → stop; (2) corrupt frontmatter → stop; (3) `done` flag present → stop (promise fulfilled); (4) `iteration >= max_iterations > 0` → write `HANDOFF.md`, then stop (cap); (5) budget halted → write `HANDOFF.md` (frozen goal + AC status + last attempts) for a different agent to resume, then stop; else increment `iteration` in place and emit `{"followup_message": "<header>\n\n<goal body>"}` to re-feed. |
+| `stop` → `loop_stop.py` | when the turn ends | guard clauses, each ends the loop cleanly (remove state, `exit 0`): (1) no scratchpad → stop; (2) corrupt frontmatter → stop; (3) `done` flag present → stop (promise fulfilled); (4) `iteration >= max_iterations > 0` → write `HANDOFF.md`, then stop (cap); (5) budget halted → write `HANDOFF.md` (frozen goal + AC status + last attempts) for a different agent to resume, then stop; (6) **spindle handoff latched** → write `HANDOFF.md` and stop (the next agent will pick up); **before promise check: runs watcher-gate** — reads `.orchestrator/loop/watcher_state.json` and rejects the promise if `match: false` or `status: UNVERIFIED`; the re-feed header is tagged with `MEASURED`/`UNVERIFIED` accordingly; else increment `iteration` in place and emit `{"followup_message": "<header>\\n\\n<goal body>"}` to re-feed. |
 
 Detection (`capture`) and termination (`stop`) are split on purpose — neither parses the
 other's inline state. Iteration carries forward through git history + the working tree, not
@@ -339,6 +410,99 @@ uncertain rather than assuming a hook will re-feed the goal:
 Delete `.orchestrator/loop/` (the `cancel-ralph` analogue). A single STOP signal (flag file
 `.orchestrator/STOP` or a channel command) halts cleanly between iterations.
 
+## Agent-to-agent handoff (spindle/latch pattern)
+
+When a loop must hand work across multiple agents — each with a different runtime, budget cap,
+or scope — the existing one-directional `HANDOFF.md` (agent A writes, walks away) is upgraded to
+a **confirmed handoff** with a latch. This is the **spindle/latch pattern**, absorbed from
+the Asolaria project (Jesse's agent-to-agent handoff protocol).
+
+### Terminology
+
+| Term | Meaning |
+|------|---------|
+| **Spindle** | A pipeline of agents: A → B → C → ... each doing one phase and passing the state forward. |
+| **Latch** | A boolean flag (`spindle.json: latch: true`) that blocks the next stage until the receiving agent confirms receipt. The latch ensures delivery — the handoff is NOT final until the next agent ACKs. |
+| **Handoff** | `handoff(next_agent, state)` — pass the accumulated state and set the latch. |
+| **Confirm** | `handoff confirm` — the receiving agent ACKs; the latch is released. |
+
+### State machine
+
+```
+IDLE ──handoff──→ LATCHED ──confirm──→ ACTIVE ──handoff──→ LATCHED ──...
+                    ↑                      │
+                    └─────── clear ────────┘
+```
+
+- **IDLE**: no active handoff. A fresh loop start.
+- **LATCHED**: a handoff was made but NOT yet confirmed by the next agent. The spindle is stalled.
+- **ACTIVE**: the handoff was confirmed; the current agent is processing.
+
+### Protocol
+
+The canonical flow for a multi-agent pipeline:
+
+```bash
+# ── Agent A does its phase, then passes to Agent B ──
+python3 scripts/handoff.py handoff --next "agent-b" \
+    --state '{"done_phases": ["phase1"], "artifacts": {"build": "./dist"}, "meta": {"issue": 42}}' \
+    --note "Phase 1 complete. Build is in ./dist. Tests pass."
+
+# Agent A can now stop cleanly. The latch holds until Agent B confirms.
+# The loop_stop.py hook will NOT re-feed the goal when a latched handoff exists.
+
+# ── Agent B arrives (new session, possibly different runtime) ──
+
+# 1. Check what's pending
+python3 scripts/handoff.py status
+# → State: LATCHED (handoff pending confirmation)
+#   Next agent: agent-b
+#   Transferred state: { ... }
+
+# 2. Confirm receipt (releases the latch)
+python3 scripts/handoff.py confirm
+# → ✓ Handoff confirmed. You are now the active agent.
+
+# Or in one step:
+python3 scripts/handoff.py receive
+# → confirm + status in one command
+
+# 3. Use the transferred state to resume
+#    (reads from spindle.json or the --state passed earlier)
+
+# 4. Process phase 2...
+
+# 5. Hand off to the next agent
+python3 scripts/handoff.py handoff --next "agent-c" \
+    --state '{"done_phases": ["phase1", "phase2"], ...}'
+```
+
+### Integration with the loop stop hook
+
+When the `loop_stop.py` hook detects an active (latched or confirmed) spindle handoff, it
+changes its behaviour:
+
+| Stop condition | With spindle handoff | Behaviour |
+|---------------|---------------------|-----------|
+| `max_iterations` cap | Latched handoff exists | **Do NOT re-feed.** The handoff target will pick up. Write HANDOFF.md + stop cleanly. |
+| Budget halted | Latched handoff exists | **Do NOT re-feed.** Same as above. |
+| Manual STOP | Latched handoff exists | **Do NOT re-feed.** Same as above. |
+| Normal re-feed | Active (confirmed) handoff | Re-feed normally — the current agent is still processing. |
+| Normal re-feed | Latched handoff | **Do NOT re-feed.** The latch means the handoff target hasn't confirmed yet — wait for them. |
+
+A spindle handoff **overrides** the normal re-feed logic: if the state file shows a latched
+handoff, the stop hook does NOT increment the iteration counter or re-feed the goal, because
+the next agent will handle it from here.
+
+### Guardrails specific to spindle handoffs
+
+- The latch is fail-open: if `spindle.json` is unreadable, treat it as if no handoff exists
+  (never trap the loop on a corrupt file).
+- The `handoff.py` script is fail-open on all I/O — a write error never blocks the stop.
+- `handoff confirm` is idempotent: confirming an already-released latch is a no-op (exit 0).
+- Handoff events are logged to `.orchestrator/loop/handoffs/events.jsonl` (append-only) for
+  auditability — each handoff, confirm, and clear is timestamped.
+
 ## Guardrails
 
 - Always set `max_iterations` OR a $ budget ceiling — never run truly unbounded.
@@ -351,9 +515,17 @@ Delete `.orchestrator/loop/` (the `cancel-ralph` analogue). A single STOP signal
 - **Never spin on a dead-end.** Record every attempt in the journal and honour the stall detector:
   K identical-fingerprint failures ⇒ change strategy or escalate, never re-feed the same goal into
   the same failure (`scripts/loop_journal.py`).
+- **Watcher-gate before every promise.** The promise is accepted ONLY if
+  `.orchestrator/loop/watcher_state.json` has `{"match": true, "status": "MEASURED"}` — the
+  watcher PID independently re-executed the work and agreed with the agent PID. A missing or
+  `UNVERIFIED` watcher state rejects the promise outright (pre-promise corrective gate per
+  Asolaria N-Nest pattern). The watcher-gate is SEPARATE from the evidence gate: both must pass.
 - Report savings only with a measured receipt (clamp / signatures / cache hit / `deterministic_edit`
   / ledger) — never a per-turn fabricated figure. No measured economy → no savings line (see
   `simplicio-tasks` Notes § savings line — evidence-gated).
+- **Every output claim is tagged** `MEASURED|` or `UNVERIFIED|` — no bare claim escapes the loop.
+  The eight Asolaria rules (§ Claims-gate discipline) enforce this mechanically. Run
+  `loop_journal.py claims-gate --check` to audit any output blob for untagged claims.
 
 ## Verifying a good loop (what "good" looks like)
 
@@ -370,10 +542,17 @@ A correctly-run loop is auditable after the fact:
 - **No oscillation.** The journal shows distinct attempts converging (fingerprints changing /
   getting resolved), not the same fingerprint re-tried past K; any stall ended in a strategy switch
   or an escalation, not a silent re-feed.
+- **All claims tagged.** Every journal entry, triage output, and exit promise carries a
+  `MEASURED|` or `UNVERIFIED|` prefix. No bare claim survived the loop.
+- **Eight rules enforced.** The `loop_journal.py claims-gate --check` passes on the loop's
+  final output.
 
 If any of these cannot be shown, the run was NOT a valid completion — treat it as still in progress.
 
 ## Output
+
+Every output line MUST be prefixed with `MEASURED|` or `UNVERIFIED|`. A bare claim
+without a tag is a contract violation.
 
 Confirm the loop is armed (goal, cap, promise, hook-bound vs self-paced), then start
 iteration 1 immediately.

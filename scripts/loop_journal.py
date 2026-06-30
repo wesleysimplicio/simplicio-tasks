@@ -18,28 +18,33 @@ State: `.orchestrator/loop/journal.jsonl` — one append-only record per attempt
 
 Verbs:
   |  record      Append one attempt. Pass --gate pass|fail|blocked and (on fail) the gate output via
-                --gate-output FILE or stdin; the failure FINGERPRINT is computed deterministically
-                (line-numbers / paths / hex / timestamps normalized away) so the SAME failure hashes
-                the SAME across turns. Optional lineage flags (`--execution-state`, `--stage-id`,
-                `--source-artifact`, `--chunk-id`, `--validator`, `--decision`, `--retry-count`,
-                `--blocked-reason`, `--next-action`) make extraction / validation / retry flow
-                explicit without losing append-only history. Pass `--bh-address R.0` to tag this
-                attempt with a **Brown-Hilbert port.port.port** delegation tree address so the
-                `delegation` command can reconstruct the agent hierarchy.
+  |              --gate-output FILE or stdin; the failure FINGERPRINT is computed deterministically
+  |              (line-numbers / paths / hex / timestamps normalized away) so the SAME failure hashes
+  |              the SAME across turns. Optional lineage flags (`--execution-state`, `--stage-id`,
+  |              `--source-artifact`, `--chunk-id`, `--validator`, `--decision`, `--retry-count`,
+  |              `--blocked-reason`, `--next-action`) make extraction / validation / retry flow
+  |              explicit without losing append-only history. Pass `--bh-address R.0` to tag this
+  |              attempt with a **Brown-Hilbert port.port.port** delegation tree address so the
+  |              `delegation` command can reconstruct the agent hierarchy.
+  |              Output is tagged `MEASURED|` on --gate pass, `UNVERIFIED|` on fail/blocked.
     fingerprint Print the stable fingerprint of a failure text (FILE or stdin). Standalone helper.
-    stall       Read the journal → verdict PROGRESS | STALLED. STALLED when the last K consecutive
-                attempts all failed with the SAME fingerprint (default K=3). Prints the recommended
-                action (switch-strategy | escalate) and the dead-end actions to avoid. Exit 10 when
-                stalled (for `if:` gating), 0 otherwise — unless --exit-code is omitted (always 0).
+    stall       Read the journal -> verdict PROGRESS | STALLED. STALLED when the last K consecutive
+  |             attempts all failed with the SAME fingerprint (default K=3). Prints the recommended
+  |             action (switch-strategy | escalate) and the dead-end actions to avoid. Exit 10 when
+  |             stalled (for `if:` gating), 0 otherwise — unless --exit-code is omitted (always 0).
+  |             Every output line is prefixed `MEASURED|` (concrete fingerprint data) or
+  |             `UNVERIFIED|` (recommendations).
     resume      The anti-oscillation read: distinct actions already tried + their outcomes + the
-                current stall count + the live error fingerprint. Print THIS at the top of each turn
-                so the loop never retries a known dead-end.
-    status      Compact tail of the journal (last N records).
+  |             current stall count + the live error fingerprint. Print THIS at the top of each turn
+  |             so the loop never retries a known dead-end. Every line tagged MEASURED| or
+  |             UNVERIFIED|.
+    status      Compact tail of the journal (last N records). Each record line tagged.
     since       Incremental triage: the delta (git diff --stat + working tree) since the last
-                recorded turn's commit — so a turn reads only what changed, not a full re-scan.
+  |             recorded turn's commit — so a turn reads only what changed, not a full re-scan.
+  |             Output tagged UNVERIFIED| (delta is a derived view, not live proof of the change).
     delegation  Print the Brown-Hilbert delegation tree reconstructed from all journal records
-                that carry a `--bh-address` — shows the sub-agent hierarchy. See `bh_address()`
-                in this module for the address format.
+  |             that carry a `--bh-address` — shows the sub-agent hierarchy. See `bh_address()`
+  |             in this module for the address format.
     selftest    Prove the fingerprint + stall logic deterministically — no files.
   claims-gate Audit a text blob for untagged claims. Reads FILE (or stdin). Every
               line should start with `MEASURED|` or `UNVERIFIED|`; lines without
@@ -54,6 +59,7 @@ Usage:
     python3 scripts/loop_journal.py stall  [--k 3] [--exit-code]
     python3 scripts/loop_journal.py resume
     python3 scripts/loop_journal.py status [--n 10]
+    python3 scripts/loop_journal.py claims-gate --check <FILE>
     python3 scripts/loop_journal.py selftest
 """
 import hashlib
@@ -288,30 +294,32 @@ def cmd_record(opts):
         opts.get("_commit") or _git_head(),  # for incremental triage (`since`)
         opts.get("_now") or _now(),
     )
+    tag = "MEASURED|" if rec["gate"] == "pass" else "UNVERIFIED|"
     with open(JOURNAL, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-    log("recorded iter=%d gate=%s fp=%s action=%r" % (
-        rec["iteration"], rec["gate"], rec["fingerprint"] or "-", rec["action"][:50]))
+    log("%srecorded iter=%d gate=%s fp=%s action=%r" % (
+        tag, rec["iteration"], rec["gate"], rec["fingerprint"] or "-", rec["action"][:50]))
     lineage = _lineage_summary(rec)
     if lineage:
-        log("lineage: %s" % lineage)
+        log("%slineage: %s" % (tag, lineage))
     if rec.get("blocked_reason"):
-        log("blocked: %s" % rec["blocked_reason"][:96])
+        log("%sblocked: %s" % (tag, rec["blocked_reason"][:96]))
     if rec.get("next_action"):
-        log("next: %s" % rec["next_action"][:96])
-    print("recorded")
+        log("%snext: %s" % (tag, rec["next_action"][:96]))
+    print("%srecorded" % tag)
 
 
 def cmd_fingerprint(opts):
     src = opts.get("file") or opts.get("input") or "-"
-    print(fingerprint(_read_source(src)) or "(no-failure)")
+    fp = fingerprint(_read_source(src)) or "(no-failure)"
+    print("UNVERIFIED|%s" % fp)
 
 
 def analyze(rows, k=DEFAULT_K):
     """Pure: journal rows -> stall verdict. Deterministic, no I/O.
 
     STALLED  = the last `k` attempts all failed with the SAME non-empty fingerprint.
-    Also surfaces oscillation: actions tried >1× under that same fingerprint (the dead-ends).
+    Also surfaces oscillation: actions tried >1x under that same fingerprint (the dead-ends).
     """
     if not rows:
         return {"verdict": "PROGRESS", "stall_count": 0, "fingerprint": "",
@@ -332,7 +340,7 @@ def analyze(rows, k=DEFAULT_K):
         else:
             break
 
-    # dead-end actions: actions that appear >1× under this exact fingerprint
+    # dead-end actions: actions that appear >1x under this exact fingerprint
     seen, dups = {}, []
     for r in rows:
         if r.get("fingerprint") == fp and r.get("gate") != "pass":
@@ -358,12 +366,14 @@ def cmd_stall(opts):
     if opts.get("json"):
         print(json.dumps(a, indent=2))
     else:
-        print(a["verdict"].lower())
-        log(a["reason"])
+        # verdict is MEASURED (concrete fingerprint data from the journal)
+        print("MEASURED|%s" % a["verdict"].lower())
+        log("MEASURED|%s" % a["reason"])
         if a["verdict"] == "STALLED":
-            log("recommend: %s — do NOT re-feed the same goal into the same failure" % a["recommend"])
+            # the recommendation is UNVERIFIED (it's a derived inference)
+            log("UNVERIFIED|recommend: %s — do NOT re-feed the same goal into the same failure" % a["recommend"])
             if a["dead_ends"]:
-                log("dead-end actions (already tried, same failure): %s" % "; ".join(a["dead_ends"]))
+                log("MEASURED|dead-end actions (already tried, same failure): %s" % "; ".join(a["dead_ends"]))
     if opts.get("exit-code") and a["verdict"] == "STALLED":
         sys.exit(10)
 
@@ -372,21 +382,21 @@ def cmd_resume(opts):
     """The read every turn should START with — what was tried, so we never repeat a dead-end."""
     rows = _load()
     if not rows:
-        print("resume: fresh loop — no prior attempts")
+        print("UNVERIFIED|resume: fresh loop — no prior attempts")
         return
     a = analyze(rows, int(opts.get("k", DEFAULT_K)))
     passed = [r for r in rows if r.get("gate") == "pass"]
-    print("resume: %d attempts · last gate=%s · stall=%s/%s · live_fp=%s" % (
+    print("MEASURED|resume: %d attempts · last gate=%s · stall=%s/%s · live_fp=%s" % (
         len(rows), rows[-1].get("gate"), a["stall_count"], opts.get("k", DEFAULT_K),
         a["fingerprint"] or "-"))
-    log("verdict: %s — recommend: %s" % (a["verdict"], a["recommend"]))
+    log("MEASURED|verdict: %s — recommend: %s" % (a["verdict"], a["recommend"]))
     lineage = _lineage_summary(rows[-1])
     if lineage:
-        log("last lineage: %s" % lineage)
+        log("UNVERIFIED|last lineage: %s" % lineage)
     if rows[-1].get("blocked_reason"):
-        log("last blocked reason: %s" % rows[-1]["blocked_reason"][:120])
+        log("UNVERIFIED|last blocked reason: %s" % rows[-1]["blocked_reason"][:120])
     if rows[-1].get("next_action"):
-        log("last next action: %s" % rows[-1]["next_action"][:120])
+        log("UNVERIFIED|last next action: %s" % rows[-1]["next_action"][:120])
     # distinct actions tried + their last outcome (anti-oscillation memory)
     last_outcome = {}
     for r in rows:
@@ -394,28 +404,29 @@ def cmd_resume(opts):
         if act:
             last_outcome[act] = r.get("gate")
     for act, gate in list(last_outcome.items())[-12:]:
-        log("tried [%s] %s" % (gate, act[:70]))
+        log("MEASURED|tried [%s] %s" % (gate, act[:70]))
     if a["dead_ends"]:
-        log("AVOID (dead-ends): %s" % "; ".join(a["dead_ends"]))
+        log("MEASURED|AVOID (dead-ends): %s" % "; ".join(a["dead_ends"]))
     if passed:
-        log("resolved fingerprints so far: %d" % len({r.get("fingerprint") for r in passed}))
+        log("MEASURED|resolved fingerprints so far: %d" % len({r.get("fingerprint") for r in passed}))
 
 
 def cmd_status(opts):
     rows = _load()
     n = int(opts.get("n", 10))
     if not rows:
-        print("journal empty")
+        print("UNVERIFIED|journal empty")
         return
-    print("journal: %d records (last %d):" % (len(rows), min(n, len(rows))))
+    print("MEASURED|journal: %d records (last %d):" % (len(rows), min(n, len(rows))))
     for r in rows[-n:]:
         suffix = _lineage_summary(r)
         if r.get("next_action"):
             suffix = (suffix + " | " if suffix else "") + "next=%s" % r["next_action"]
         if r.get("blocked_reason"):
             suffix = (suffix + " | " if suffix else "") + "blocked=%s" % r["blocked_reason"]
-        msg = "iter=%-3s %-7s fp=%-12s %s" % (
-            r.get("iteration"), r.get("gate"), r.get("fingerprint") or "-",
+        tag = "MEASURED|" if r.get("gate") == "pass" else "UNVERIFIED|"
+        msg = "%siter=%-3s %-7s fp=%-12s %s" % (
+            tag, r.get("iteration"), r.get("gate"), r.get("fingerprint") or "-",
             (r.get("action") or "")[:56])
         if suffix:
             msg += " [" + suffix[:160] + "]"
@@ -425,7 +436,7 @@ def cmd_status(opts):
 def cmd_since(opts):
     """Incremental triage: show ONLY the delta since the last recorded turn, not a full re-scan.
 
-    The last journal record stamped the HEAD commit; `since` diffs that commit → now plus the
+    The last journal record stamped the HEAD commit; `since` diffs that commit -> now plus the
     working-tree changes. A turn reads this instead of re-surveying the whole tree every time.
     """
     rows = _load()
@@ -435,25 +446,25 @@ def cmd_since(opts):
             base = r["commit"]
             break
     if not base:
-        print("since: no prior commit recorded — full working-tree state:")
+        print("UNVERIFIED|since: no prior commit recorded — full working-tree state:")
         print(_git(["status", "--short"]) or "  (git unavailable)")
         return
-    print("since: delta vs last recorded turn (%s):" % base[:12])
+    print("UNVERIFIED|since: delta vs last recorded turn (%s):" % base[:12])
     stat = _git(["diff", "--stat", "%s..HEAD" % base])
     if stat:
         for ln in stat.splitlines():
-            log(ln)
+            log("UNVERIFIED|" + ln)
     wt = _git(["status", "--short"])
     if wt:
-        log("working tree:")
+        log("UNVERIFIED|working tree:")
         for ln in wt.splitlines():
-            log("  " + ln)
+            log("UNVERIFIED|  " + ln)
     if not stat and not wt:
-        log("no change since last turn — triage can skip a full re-scan")
+        log("UNVERIFIED|no change since last turn — triage can skip a full re-scan")
 
 
 def _bh_sort_key(addr):
-    """Sort helper for BH addresses like R, R.0, R.0.1, R.1, R.10, …
+    """Sort helper for BH addresses like R, R.0, R.0.1, R.1, R.10, ...
 
     Each segment is compared numerically so R.10 sorts after R.9, not after R.1.
     """
@@ -513,33 +524,74 @@ def cmd_delegation(opts):
             key=_bh_sort_key,
         )
         for i, child_addr in enumerate(child_addrs):
-            branch = "└──" if i == len(child_addrs) - 1 else "├──"
+            branch = "+--" if i == len(child_addrs) - 1 else "|--"
             _render_tree(branch, child_addr, depth + 1)
 
     # Start from root(s)
     roots = sorted([a for a in nodes if a.count(".") == 0], key=_bh_sort_key)
     if not roots and unnamed:
         # No BH-addressed records at all — just a flat list
-        print("delegation tree: no BH-addressed records found")
-        print("  use: loop_journal.py record --bh-address <addr> …")
+        print("UNVERIFIED|delegation tree: no BH-addressed records found")
+        print("  UNVERIFIED|use: loop_journal.py record --bh-address <addr> ...")
         print("")
-        print("unaddressed records: %d" % len(unnamed))
+        print("UNVERIFIED|unaddressed records: %d" % len(unnamed))
         return
     for i, root_addr in enumerate(roots):
-        prefix = "└──" if i == len(roots) - 1 else "├──"
+        prefix = "+--" if i == len(roots) - 1 else "|--"
         _render_tree(prefix, root_addr)
 
     if unnamed:
         out_lines.append("%s(unassigned) — %d record(s) without BH address" % (
-            "  " * (max(1, len(roots))) + "└──", len(unnamed)))
+            "  " * (max(1, len(roots))) + "+--", len(unnamed)))
 
-    print("delegation tree (%d nodes):" % len(nodes))
+    print("MEASURED|delegation tree (%d nodes):" % len(nodes))
     for ln in out_lines:
-        print(ln)
+        print("MEASURED|  " + ln)
     print("")
     total = len(rows)
     addressed = sum(len(v) for v in nodes.values())
-    log("%d/%d records carry BH addresses" % (addressed, total))
+    log("MEASURED|%d/%d records carry BH addresses" % (addressed, total))
+
+
+def cmd_claims_gate(opts):
+    """Audit a text blob for untagged claims.
+
+    Every line should start with `MEASURED|` or `UNVERIFIED|`. Lines that don't
+    are reported as untagged claims. Reads FILE (or stdin with --check and no FILE).
+    Exit 1 when untagged claims exist, 0 otherwise.
+    """
+    src = None
+    for a in sys.argv[2:]:
+        if not a.startswith("--"):
+            src = a
+            break
+    text = _read_source(src)
+    if not text.strip():
+        print("MEASURED|claims-gate: empty input — nothing to check")
+        sys.exit(0)
+
+    lines = text.splitlines()
+    untagged = []
+    for i, ln in enumerate(lines, 1):
+        stripped = ln.strip()
+        if not stripped:
+            continue
+        # Skip lines that are markdown formatting, code fences, or tables
+        if stripped.startswith(("```", "|", "---", "**")):
+            continue
+        # Lines starting with a claims-gate tag are good
+        if stripped.startswith(("MEASURED|", "UNVERIFIED|")):
+            continue
+        untagged.append((i, ln))
+
+    if untagged:
+        for line_no, ln in untagged[:20]:
+            log("UNVERIFIED|line %d: %s" % (line_no, ln[:80]))
+        count = len(untagged)
+        print("UNVERIFIED|claims-gate: %d untagged claim(s) found — FAIL" % count)
+        sys.exit(1)
+    else:
+        print("MEASURED|claims-gate: all lines properly tagged — PASS")
 
 
 def cmd_selftest(_opts):
@@ -600,9 +652,36 @@ def cmd_selftest(_opts):
     chk("record.metadata.retry", rec.get("retry_count"), 2)
     chk("record.metadata.summary", "state=authorized" in _lineage_summary(rec), True)
 
+    # claims-gate check
+    chk("claims_gate.clean", cmd_claims_gate_selftest_ok(), True)
+    chk("claims_gate.dirty", cmd_claims_gate_selftest_fail(), True)
+
     ok = all(checks)
     print("selftest: %s (%d/%d)" % ("PASS" if ok else "FAIL", sum(checks), len(checks)))
     sys.exit(0 if ok else 1)
+
+
+def cmd_claims_gate_selftest_ok():
+    """Helper: check that cleanly tagged text passes claims-gate."""
+    text = "MEASURED|all tests pass\nUNVERIFIED|hypothesis: race condition\n"
+    lines = text.splitlines()
+    for ln in lines:
+        stripped = ln.strip()
+        if stripped and not stripped.startswith(("MEASURED|", "UNVERIFIED|")):
+            return False
+    return True
+
+
+def cmd_claims_gate_selftest_fail():
+    """Helper: check that untagged text fails claims-gate."""
+    text = "some untagged claim\nMEASURED|tagged line\n"
+    lines = text.splitlines()
+    untagged = 0
+    for ln in lines:
+        stripped = ln.strip()
+        if stripped and not stripped.startswith(("MEASURED|", "UNVERIFIED|")):
+            untagged += 1
+    return untagged > 0
 
 
 def _parse(args):
@@ -631,10 +710,10 @@ def main():
     sub, opts = argv[0], _parse(argv[1:])
     {"record": cmd_record, "fingerprint": cmd_fingerprint, "stall": cmd_stall,
      "resume": cmd_resume, "status": cmd_status, "since": cmd_since,
-     "delegation": cmd_delegation,
+     "delegation": cmd_delegation, "claims-gate": cmd_claims_gate,
      "selftest": cmd_selftest}.get(
         sub, lambda _o: (print("unknown command '%s'. choices: record fingerprint stall resume "
-                               "status since delegation selftest" % sub), sys.exit(2)))(opts)
+                               "status since delegation claims-gate selftest" % sub), sys.exit(2)))(opts)
 
 
 if __name__ == "__main__":
