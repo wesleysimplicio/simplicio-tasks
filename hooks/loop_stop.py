@@ -176,6 +176,29 @@ def tail_journal(n=8):
         return []
 
 
+def attempt_suffix(a):
+    bits = []
+    if a.get("execution_state"):
+        bits.append("state=%s" % a["execution_state"])
+    if a.get("stage_id"):
+        bits.append("stage=%s" % a["stage_id"])
+    if a.get("decision"):
+        bits.append("decision=%s" % a["decision"])
+    if a.get("validator"):
+        bits.append("validator=%s" % a["validator"])
+    if a.get("retry_count") is not None:
+        bits.append("retry=%s" % a["retry_count"])
+    if a.get("chunk_id"):
+        bits.append("chunk=%s" % a["chunk_id"])
+    if a.get("source_artifact"):
+        bits.append("source=%s" % a["source_artifact"])
+    if a.get("next_action"):
+        bits.append("next=%s" % a["next_action"])
+    if a.get("blocked_reason"):
+        bits.append("blocked=%s" % a["blocked_reason"])
+    return (" — " + " | ".join(bits)) if bits else ""
+
+
 def write_handoff(reason, meta=None, body=None):
     """Write the cross-agent continuation artifact before an INCOMPLETE stop.
 
@@ -218,13 +241,14 @@ def write_handoff(reason, meta=None, body=None):
             lines += ["", "## Last attempts (`scripts/loop_journal.py resume` for the full read)"]
             for a in attempts:
                 lines.append(
-                    "- iter %s: %s -> %s (fp %s)%s"
+                    "- iter %s: %s -> %s (fp %s)%s%s"
                     % (
                         a.get("iteration", "?"),
                         a.get("action", "?"),
                         a.get("gate", "?"),
                         (a.get("fingerprint") or "")[:12],
                         (" — %s" % a["note"]) if a.get("note") else "",
+                        attempt_suffix(a),
                     )
                 )
         lines += [

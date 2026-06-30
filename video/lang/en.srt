@@ -1,0 +1,47 @@
+1
+00:00:00,000 --> 00:00:07,900
+This isn't a chatbot. It's a worker. You point simplicio-loop at a body of work — and it runs the whole job on its own.
+
+2
+00:00:08,000 --> 00:00:17,900
+Issues, CI failures, Jira boards — queues that never empty. And every pass burns more tokens. What if one command drained all of it, cheaply?
+
+3
+00:00:18,000 --> 00:00:25,900
+First, pre-flight. A hard cost kill-switch, source auth, and a twenty-four-seven watcher — all green before a single line of code.
+
+4
+00:00:26,000 --> 00:00:37,900
+It discovers fifty issues, dedups them, builds a dependency graph, and auto-scales a fleet of fourteen agents to your machine.
+
+5
+00:00:38,000 --> 00:00:52,900
+Each item runs the full cycle: read the body and acceptance criteria, orient the code, plan, apply the edit mechanically, then run it. Because it has to work — not just compile.
+
+6
+00:00:53,000 --> 00:01:04,900
+Quality gates fire: the acceptance-criteria check, three adversarial reviewers refuting in parallel. And a fail-closed safety gate blocks force-push and secrets before they ever run.
+
+7
+00:01:05,000 --> 00:01:16,900
+Token economy is relentless. An eight-hundred-seventy-line file collapses to sixty-five signatures — ninety-three percent saved. Output is clamped and cached. Watch the live dashboard: up to ninety-six percent fewer tokens.
+
+8
+00:01:17,000 --> 00:01:26,900
+The loop never lies. The done-promise only fires with real proof — a passing test, a merged PR. A stall detector switches strategy instead of spinning. Never a false done.
+
+9
+00:01:27,000 --> 00:01:36,900
+Ask for a demo video and it makes one. web_verify captures the screens, hyperframes renders a deterministic M-P-4, attached straight to the pull request as proof.
+
+10
+00:01:37,000 --> 00:01:46,900
+Eleven runtimes, one protocol — Claude, Codex, Copilot, Cursor, Gemini, Hermes and more. Same gates, same safety. Only the speed differs.
+
+11
+00:01:47,000 --> 00:01:54,900
+It merges, closes, and goes idle — then wakes the moment new work arrives. Twenty-four seven.
+
+12
+00:01:55,000 --> 00:02:02,900
+Pip install simplicio-loop. One command installs everything. M-I-T, open, and waiting on GitHub. Join us.

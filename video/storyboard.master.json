@@ -1,0 +1,133 @@
+{
+  "$note": "Storyboard MESTRE (language-agnostic) do vídeo-tutorial do simplicio-loop. Define visual, efeitos especiais, som e timing de cada cena. Os textos (caption + narração) vivem nos arquivos por idioma em video/lang/*.json, na ordem EN → ZH → ES → PT. Render via hyperframes 0.7.x (HeyGen) — HTML→MP4 determinístico. Fonte dos dados: simplicio-loop.project.json.",
+  "video": {
+    "title": "simplicio-loop — The Universal Looping AI Orchestrator",
+    "format": "16:9",
+    "resolution": "1920x1080",
+    "fps": 30,
+    "quality": "high",
+    "per_language_duration_s": 123,
+    "languages_order": ["en", "zh-CN", "es", "pt-BR"],
+    "delivery_modes": {
+      "separate": "4 MP4s, um por idioma (simplicio-loop_<lang>.mp4) — recomendado p/ canais segmentados",
+      "reel": "1 MP4 concatenando EN→ZH→ES→PT (~8min12s) com card de transição entre idiomas — 'mostrar tudo' num arquivo só"
+    },
+    "style": {
+      "vibe": "dinâmico, cinematográfico, tech-premium, alto contraste, neon",
+      "background": "#0B0E14 (near-black) com grade sutil + glow radial",
+      "text_light": "#E6EDF3",
+      "palette": { "skills_purple": "#7C3AED", "accent_green": "#00E08A", "runtimes_blue": "#2563EB", "discord": "#5865F2", "warn_red": "#FF5C5C" },
+      "fonts": { "display": "Space Grotesk / Inter Bold", "mono": "JetBrains Mono" },
+      "motion_engine": "GSAP timeline registrada em window.__timelines (schema hyperframes 0.7.x: #root[data-composition-id] + .clip[data-start/data-duration/data-track-index])"
+    },
+    "audio": {
+      "music_bed": "synthwave/tech build, BPM ~120, sobe a cada cena, drop no CTA",
+      "mix": "music -16 LUFS bed, narração -3dB acima do bed, SFX picos -6dB",
+      "tts_note": "Narração por idioma via HeyGen TTS (ou MCP de áudio); voice hints em cada arquivo de idioma. Áudio é faixa separada montada no FFmpeg/hyperframes — nunca vai pro contexto do LLM."
+    }
+  },
+
+  "global_effects_kit": {
+    "transitions": ["glitch-cut", "whip-pan", "radial-wipe", "depth-zoom", "light-streak"],
+    "recurring_motifs": [
+      "loop ♾️ girando no canto inferior-direito como 'heartbeat' contínuo do vídeo",
+      "linha de progresso re-feed (seta que volta ao início) reaparece em cada transição de etapa",
+      "tokens caindo como partículas verdes que são 'clampadas'/somem quando a economia entra"
+    ],
+    "sfx_library": ["whoosh", "click", "riser", "impact-boom", "data-blip", "success-chime", "typing", "swoosh-particles", "lock-clunk", "render-shutter"]
+  },
+
+  "scenes": [
+    {
+      "id": 1, "key": "hook", "start_s": 0, "duration_s": 8,
+      "headline_data": "Não é um chatbot. É um trabalhador.",
+      "on_screen": ["logo simplicio-loop (assets/simplicio-loop-logo.png) com glow", "terminal digitando '/simplicio-tasks termine as issues abertas'", "loop ♾️ acende"],
+      "effects": { "in": "depth-zoom from black", "anim": ["logo bloom + chromatic aberration pulse", "typing cursor", "♾️ ignite com spark particles"], "camera": "slow push-in", "out": "light-streak" },
+      "sound": { "music": "intro riser", "sfx": ["typing", "riser", "impact-boom"] }
+    },
+    {
+      "id": 2, "key": "problem", "start_s": 8, "duration_s": 10,
+      "headline_data": "Filas que nunca esvaziam + custo de tokens explodindo",
+      "on_screen": ["pilha de cards: GitHub Issues, CI, Jira, Azure DevOps empilhando", "gráfico vermelho de custo subindo"],
+      "effects": { "in": "whip-pan", "anim": ["cards empilham com shake", "linha vermelha sobe + screen-shake leve", "números de $ subindo rápido"], "camera": "handheld jitter", "out": "glitch-cut" },
+      "sound": { "music": "tension build", "sfx": ["data-blip", "impact-boom"] }
+    },
+    {
+      "id": 3, "key": "preflight", "start_s": 18, "duration_s": 8,
+      "headline_data": "Pre-flight: kill-switch ✓ ($5/day) · auth ✓ · watcher ✓",
+      "on_screen": ["3 checkboxes acendendo em verde", "arquivo .orchestrator/loop-budget.json aparecendo"],
+      "effects": { "in": "radial-wipe", "anim": ["checkmarks pop com success-chime", "json materializa com type-on"], "camera": "static lock", "out": "whip-pan" },
+      "sound": { "music": "steady pulse", "sfx": ["success-chime x3", "click"] }
+    },
+    {
+      "id": 4, "key": "discover_dag", "start_s": 26, "duration_s": 12,
+      "headline_data": "discover 50 issues · dedup · dependency DAG · autoscale fleet = 14",
+      "on_screen": ["50 nós aparecendo", "dedup colapsa duplicatas", "DAG se desenha com arestas", "medidor de fleet sobe até 14"],
+      "effects": { "in": "depth-zoom", "anim": ["nós spawnam com swoosh-particles", "arestas do DAG desenham (stroke-draw)", "gauge fleet enche"], "camera": "orbital pan ao redor do DAG", "out": "light-streak" },
+      "sound": { "music": "rhythmic arpeggio", "sfx": ["data-blip xN", "swoosh-particles", "riser"] }
+    },
+    {
+      "id": 5, "key": "cycle", "start_s": 38, "duration_s": 15,
+      "headline_data": "read body+ACs → orient → plan → deterministic_edit → run → verify → PR — WORKS, not just compiles",
+      "on_screen": ["pipeline horizontal de 7 estágios iluminando em sequência", "destaque pulsante em 'RUN' e 'WORKS, not just compiles'", "diff sendo aplicado mecanicamente (deterministic_edit)"],
+      "effects": { "in": "whip-pan", "anim": ["cada estágio acende em cascata", "diff lines type-on verdes", "selo 'WORKS' carimba com impact"], "camera": "lateral tracking ao longo do pipeline", "out": "radial-wipe" },
+      "sound": { "music": "drive groove", "sfx": ["click x7", "typing", "success-chime"] }
+    },
+    {
+      "id": 6, "key": "quality_safety", "start_s": 53, "duration_s": 12,
+      "headline_data": "AC gate · adversarial review (3 rubricas) · action_gate FAIL-CLOSED bloqueia force-push/segredo",
+      "on_screen": ["3 reviewers paralelos (security, quality, runtime) com veredito", "cadeado vermelho FAIL-CLOSED barrando 'git push --force' e um segredo"],
+      "effects": { "in": "glitch-cut", "anim": ["3 painéis abrem simultâneos", "linhas de refutação riscando", "cadeado fecha com lock-clunk + tela treme"], "camera": "snap-zoom no cadeado", "out": "impact-boom flash" },
+      "sound": { "music": "ominous stab", "sfx": ["data-blip", "lock-clunk", "impact-boom"] }
+    },
+    {
+      "id": 7, "key": "token_economy", "start_s": 65, "duration_s": 12,
+      "headline_data": "signatures 870→65 linhas (93%) · clamp + tee cache · dashboard :9090 · até 96% menos tokens",
+      "on_screen": ["arquivo 870 linhas colapsa para 65 (assinaturas)", "partículas de token verdes sendo clampadas/somem", "dashboard 127.0.0.1:9090 ao vivo com gauge de savings", "selo 'até 96% menos tokens'"],
+      "effects": { "in": "depth-zoom", "anim": ["código colapsa (accordion)", "tokens evaporam em verde", "gauge gira até 96%"], "camera": "push-in no gauge", "out": "light-streak" },
+      "sound": { "music": "uplift", "sfx": ["swoosh-particles", "success-chime", "riser"] }
+    },
+    {
+      "id": 8, "key": "evidence_loop", "start_s": 77, "duration_s": 10,
+      "headline_data": "<promise> só sai COM prova · stall detector troca estratégia · nunca um falso 'done'",
+      "on_screen": ["sentinela <promise>SIMPLICIO_DONE</promise> tentando sair e sendo BARRADA sem evidência", "depois: teste verde + PR mergeado → promise LIBERADA", "journal.jsonl com fingerprints"],
+      "effects": { "in": "radial-wipe", "anim": ["promise sem prova → X vermelho + bounce-back", "prova chega → gate verde abre", "stall: seta troca de rota"], "camera": "static lock", "out": "whip-pan" },
+      "sound": { "music": "suspense → release", "sfx": ["error-buzz", "success-chime", "click"] }
+    },
+    {
+      "id": 9, "key": "video_evidence", "start_s": 87, "duration_s": 10,
+      "headline_data": "'faça um vídeo demonstrativo da tela X' → web_verify → hyperframes → MP4 determinístico no PR",
+      "on_screen": ["screenshots por step capturados por web_verify", "hyperframes monta MP4 captioned", "MP4 anexado ao PR com link"],
+      "effects": { "in": "render-shutter", "anim": ["screenshots deslizam num filmstrip", "barra de render preenche", "MP4 'gruda' no card do PR"], "camera": "filmstrip pan", "out": "light-streak" },
+      "sound": { "music": "playful tech", "sfx": ["render-shutter", "swoosh-particles", "success-chime"] }
+    },
+    {
+      "id": 10, "key": "runtimes", "start_s": 97, "duration_s": 10,
+      "headline_data": "11 runtimes, um protocolo — só a velocidade difere",
+      "on_screen": ["11 logos/labels: Claude Code, Codex, VS Code/Copilot, Cursor, Antigravity, Kiro, OpenCode, Gemini, Aider, Hermes, OpenClaw", "mesma cor de protocolo conectando todos ao hub central"],
+      "effects": { "in": "depth-zoom", "anim": ["11 nós orbitam o hub simplicio-tasks", "linhas de conexão pulsam na mesma cor", "selo '✅ same gates, same safety'"], "camera": "orbital", "out": "radial-wipe" },
+      "sound": { "music": "expansive", "sfx": ["data-blip x11", "riser"] }
+    },
+    {
+      "id": 11, "key": "always_on", "start_s": 107, "duration_s": 8,
+      "headline_data": "merge · close · idle · acorda com novo trabalho — 24/7",
+      "on_screen": ["item mergeado e fechado", "loop ♾️ desacelera para idle", "novo card chega → loop acelera de novo"],
+      "effects": { "in": "whip-pan", "anim": ["PR merge animation", "♾️ pulsa devagar (idle)", "novo work-item entra → ♾️ acelera"], "camera": "slow zoom-out", "out": "light-streak" },
+      "sound": { "music": "calm → re-ignite", "sfx": ["success-chime", "heartbeat", "riser"] }
+    },
+    {
+      "id": 12, "key": "cta", "start_s": 115, "duration_s": 8,
+      "headline_data": "pip install simplicio-loop · bash scripts/install.sh claude · MIT · Discord · GitHub ⭐",
+      "on_screen": ["comandos de install em mono", "badges: MIT, 11 runtimes, 48 extension points, até 96% menos tokens, Discord", "QR/links GitHub + Discord", "logo final com loop ♾️"],
+      "effects": { "in": "radial-wipe", "anim": ["comandos type-on", "badges pop em sequência", "logo final bloom + ♾️ trava"], "camera": "push-in final", "out": "fade to logo" },
+      "sound": { "music": "drop + outro", "sfx": ["typing", "success-chime", "impact-boom"] }
+    }
+  ],
+
+  "language_card_between_versions": {
+    "$note": "Usado SÓ no modo 'reel' (4 idiomas num arquivo). Card de 2s entre versões.",
+    "duration_s": 2,
+    "content": "Bandeira + nome do idioma (English / 中文 / Español / Português) com whip-pan",
+    "effects": { "anim": ["flag flip", "label slam"], "sound": { "sfx": ["whoosh", "impact-boom"] } }
+  }
+}

@@ -1,0 +1,783 @@
+{
+  "$schema_note": "Mapa exaustivo do projeto simplicio-loop, extraído lendo os arquivos reais do repositório (README.md, CLAUDE.md, AGENTS.md, as 6 SKILL.md, references/*, pyproject.toml, plugin manifests, hooks/, engine/, rust/, scripts/, adapters/, CHANGELOG.md, PRICING.md, app/providers.json). Destinado a alimentar a geração de uma imagem detalhada e de um vídeo-tutorial. Idioma dos campos descritivos: PT-BR; identificadores/comandos/paths em inglês conforme o repo.",
+  "generated_at": "2026-06-25",
+  "generated_for": ["imagem-infografico-detalhada", "video-tutorial"],
+
+  "project": {
+    "name": "simplicio-loop",
+    "skill_brand_name": "simplicio-tasks",
+    "display_name": "simplicio-loop — Universal Looping AI Orchestrator",
+    "tagline": "The Universal Looping AI Orchestrator",
+    "one_liner": "Super-plugin runtime-agnóstico (6 skills) que drena qualquer fila de trabalho de ponta a ponta em QUALQUER LLM/runtime — discover → implement → verify → merge → close → watch 24/7 — atrás de safety gates e um kill-switch de custo, com até 96% menos tokens. Não é um chatbot. É um trabalhador (a worker).",
+    "version": "3.9.3",
+    "version_sources_in_lockstep": ["pyproject.toml", ".claude-plugin/plugin.json", "simplicio_loop/__init__ (fallback literals)"],
+    "version_note": "O bloco 'Official capability record (v3.4.0)' no README está desatualizado; a versão canônica do pacote é 3.9.3.",
+    "license": "MIT",
+    "author": { "name": "Wesley Simplicio", "email": "wesleybob4@gmail.com" },
+    "ecosystem": "Simplicio (https://github.com/wesleysimplicio)",
+    "repository": "https://github.com/wesleysimplicio/simplicio-loop",
+    "homepage": "https://github.com/wesleysimplicio/simplicio-loop",
+    "issues": "https://github.com/wesleysimplicio/simplicio-loop/issues",
+    "discord": "https://discord.gg/wM6tr7xVb",
+    "pypi_package": "simplicio-loop",
+    "pip_install": "pip install simplicio-loop",
+    "console_script": "simplicio-loop = simplicio_loop.cli:main",
+    "requires_python": ">=3.8",
+    "primary_invocation": "/simplicio-tasks finish all the open issues",
+    "development_status": "4 - Beta",
+    "keywords": ["ai", "agent", "orchestrator", "llm", "claude", "cursor", "automation", "ralph-loop", "token-economy", "cli"],
+    "core_thesis": "A INVERTED DEPENDENCY: 'the skill names no runtime; the runtime detects the skill'. Portabilidade É o produto. O paid offering cobra por rodar para você (watcher, operadores, dashboard, fleet), nunca por gatear o código."
+  },
+
+  "headline_numbers": {
+    "skills": 6,
+    "skills_plus_accelerators": 11,
+    "satellite_skills": 5,
+    "accelerators_integrations": 5,
+    "extension_points": 48,
+    "extension_points_note": "Reconciliado de 44→48 no Unreleased; alguns trechos antigos de docs ainda citam 44.",
+    "runtimes": 11,
+    "source_adapters": 5,
+    "languages_readme": 15,
+    "token_savings_max_pct": 96,
+    "providers_total": 144,
+    "providers_interceptable": 141,
+    "providers_interceptable_pct": 98,
+    "providers_active": 5,
+    "rust_crates": 4,
+    "engine_python_modules": 25,
+    "design_pillars": 4,
+    "standing_loop_axes": 10,
+    "scripts_referenced_audit": "claims-audit 4/4",
+    "test_count": 24,
+    "loop_journal_selftest": "9/9",
+    "action_gate_selftest": "14/14 (README cita 15/15 em um ponto)",
+    "billing_aggregator_selftest": "11/11",
+    "dashboard_port": 9090,
+    "capture_proxy_port": 8788
+  },
+
+  "tldr": {
+    "what_it_is": "simplicio-tasks transforma qualquer LLM forte (Claude, Codex, Copilot, Gemini, Cursor, modelos locais) num worker autônomo. Você aponta para um corpo de trabalho ('finish all the open issues', 'clear the CI queue', 'drain the Jira board') e ele roda o ciclo inteiro sozinho.",
+    "lifecycle_motto": "discover → understand → decide → act → verify → correct → record → repeat",
+    "three_differentiators": [
+      "É um SUPER-PLUGIN de skills focadas (orquestrador + 5 satélites)",
+      "Roda o MESMO protocolo em 11 runtimes",
+      "Faz tudo com economia de tokens agressiva e honesta (evidence-gated)"
+    ],
+    "example_run_trace": [
+      "/simplicio-tasks termine as issues abertas",
+      "→ identity + pre-flight (kill-switch, auth, watcher)",
+      "→ discover 50 issues · dedup · build dependency DAG",
+      "→ autoscale fleet = 14 · pipeline implement→review→merge",
+      "→ each item: read body+ACs → orient code → plan → edit → run → verify → PR",
+      "→ merge · close with evidence · rollback if main breaks",
+      "→ keep looping every ~2 min until the queue is dry (evidence-gated, never a false 'done')"
+    ]
+  },
+
+  "the_6_skills": [
+    {
+      "id": 1,
+      "name": "simplicio-tasks",
+      "icon": "🔁",
+      "role": "O orquestrador-loop (o protocolo). Discover → implement → verify → merge → close → watch 24/7.",
+      "absorbs": "—",
+      "path": ".claude/skills/simplicio-tasks/SKILL.md",
+      "token_impact": "Core",
+      "key_mechanics": ["48 extension points", "dual-path router (fast/heavy)", "self-audit convergence", "auto-arma o loop na invocação (sem /loop separado)"],
+      "steps": [
+        "Step 0 — Auto-arm the loop (escreve .orchestrator/loop/scratchpad.md)",
+        "Step 1 — Identity + environment",
+        "Step 1a — Pre-flight (kill-switch budget, source auth, watcher)",
+        "Step 1a' — Repo conventions (branch/commit/PR/CI)",
+        "Step 1b — Extension points (bind native, else LLM fallback)",
+        "Step 1b' — Companion skills (satélites)",
+        "Step 1c — Token-economy gate",
+        "Step 2 — Discover + normalize · Step 2b — Deep intake",
+        "Step 3 — Route (dual-path) + scale",
+        "Step 4 — Quality loop (edit→fmt→lint→test→fix), 4a AC gate, 4b WORKS not just compiles, 4c adversarial verify",
+        "Step 5 — Safety gates (non-negotiable)",
+        "Step 6 — Deliver + close + self-audit · Step 6b — Feedback loop",
+        "Step 7 — 24/7 standing loop"
+      ],
+      "references": [
+        "references/extension-points.md", "references/token-economy.md", "references/orchestration.md",
+        "references/quality-safety-delivery.md", "references/standing-loop-247.md",
+        "references/web-evidence.md", "references/video-evidence.md", "references/token-capture.md",
+        "references/agentsview-adapter.md", "references/azure-devops-adapter.md",
+        "references/headroom-adapter.md", "references/lmcache-adapter.md", "references/understand-anything-adapter.md"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "simplicio-loop",
+      "icon": "♾️",
+      "role": "Ralph loop endurecido: re-alimenta o goal até um <promise> evidence-gated ou um cap max_iterations. Run-journal durável (memória de tentativas) + stall detector — troca de estratégia em vez de oscilar.",
+      "absorbs": "ralph-loop (cursor)",
+      "path": ".claude/skills/simplicio-loop/SKILL.md",
+      "token_impact": "Loop drive",
+      "normative_contract": [
+        "1. Evidence-gated exit — sem evidência no MESMO turno, sem saída",
+        "2. Exact promise — sentinela <promise>EXACT TEXT</promise> idêntico ao completion_promise",
+        "3. Deterministic continuation — re-feed mecânico do goal+estado",
+        "4. Bounded by construction — max_iterations OU teto de budget antes da iteração 1",
+        "5. Single source of truth — estado no scratchpad; flag done só quando verificado",
+        "6. Fallback obeys the same contract — modo self-paced honra invariantes 1-5"
+      ],
+      "two_modes": {
+        "converge": "Tarefa única e difícil — termina no <promise> evidence-gated ou escalada por stall",
+        "drain": "Fila de itens — termina quando a re-query da fonte fica vazia K rodadas (dry>=2) e o working set está idle"
+      },
+      "state_file": ".orchestrator/loop/scratchpad.md (YAML frontmatter: iteration, max_iterations, completion_promise, evidence_required, mode, started_at)",
+      "journal_file": ".orchestrator/loop/journal.jsonl (append-only: iteration, action, hypothesis, gate, fingerprint, ts)",
+      "done_flag": ".orchestrator/loop/done (touch só quando promise verificado)",
+      "bound_operators_required": true,
+      "stall_detector": "K falhas consecutivas com o MESMO error-fingerprint (default K=3) = STALLED → switch-strategy (K) ou escalate (>K). Fingerprint estável: normaliza números de linha, paths, hex/uuid, timestamps, durações.",
+      "video_evidence_producer": "hyperframes — não é bound operator (nunca BLOCKa o loop); fira só em pedido de vídeo ou prova de UI"
+    },
+    {
+      "id": 3,
+      "name": "simplicio-orient",
+      "icon": "🧱",
+      "role": "Execução terminal-first: responde fatos com o shell, nunca com o LLM. Output-reduction catalog, tee-cache, signatures-only reads, auto-rewrite hook.",
+      "absorbs": "rtk + caveman",
+      "path": ".claude/skills/simplicio-orient/SKILL.md",
+      "token_impact": "L0 deterministic",
+      "the_one_rule": "Se a resposta é um fato sobre filesystem/git/processos/recursos — o terminal sabe exatamente e barato. O LLM é para raciocínio; o terminal é para fatos. EXECUTE comandos de verdade, nunca raciocine sobre o que um comando 'retornaria'.",
+      "execution_priority": ["host-native shell_exec bound", "shell/Bash com clamp", "NUNCA: LLM narrando saída provável"],
+      "primitives": ["success-collapse (unless errors present)", "dedup-with-counts (line ×N)"],
+      "tee_cache": ".orchestrator/tee/<ts>_<cmd-slug>.log na falha; surface só o path; CCR retrieve <path> [--lines a-b] [--grep PATTERN] reversível",
+      "signatures_reads": "Arquivo 600 linhas → ~40 linhas de assinaturas; bodies elididos",
+      "fail_open": "Qualquer erro/dep ausente → roda comando original e propaga o exit REAL"
+    },
+    {
+      "id": 4,
+      "name": "simplicio-review",
+      "icon": "🔥",
+      "role": "Review adversarial paralelo (thermo-nuclear): subagents em rubricas distintas (segurança/correção E qualidade), spawnados numa única mensagem, deduplicados num único veredito.",
+      "absorbs": "thermos (cursor)",
+      "path": ".claude/skills/simplicio-review/SKILL.md",
+      "token_impact": "Quality gate",
+      "rubrics": {
+        "A": "Security & correctness — bugs reais em linhas mudadas, breaking changes, injeção/segredo/authz/SSRF/path traversal, ACs não cumpridos, fake/placeholder returns, debug leaks",
+        "B": "Code quality & maintainability — simplificação estrutural, arquivos >~1000 linhas, abstrações vazadas, naming, dead code, testes que não asseguram nada",
+        "C (LARGE/CRITICAL only)": "Does-it-reproduce / runtime — roda o path mudado; front-end exige web_verify ledger (screenshot+trace + 0 console errors)"
+      },
+      "verdict": "pass | fix-required | block. Maioria-refuta em qualquer AC → volta ao fix. Um achado de segurança de alta confiança bloqueia independente de voto.",
+      "scope": "Apenas linhas adicionadas/modificadas (o diff)"
+    },
+    {
+      "id": 5,
+      "name": "simplicio-compress",
+      "icon": "🗜️",
+      "role": "Compressão de output + memória, byte-preserving. transform_guard fail-closed.",
+      "absorbs": "caveman",
+      "path": ".claude/skills/simplicio-compress/SKILL.md",
+      "token_impact": "40-60% menos",
+      "two_surfaces": ["Output-side: comprime a PROSA do modelo", "Input-side: comprime contexto permanente UMA vez (memory/docs, ~46% input reduction em memory files)"],
+      "prose_levels": { "lite": "PR bodies/confirmações — tira filler", "full": "default — prosa técnica terse", "ultra": "worker→orquestrador — fragmentos telegráficos" },
+      "inviolable_rule": "Código, comandos, error strings, URLs, paths, identifiers, tokens de versão/numéricos ficam EXATOS — nunca parafraseados.",
+      "transform_guard": "Zero-LLM, fail-closed: extrai conjunto de code fences/inline-code (por OCORRÊNCIA)/URLs/paths/versões antes e depois. Token perdido → HARD failure (descarta, mantém original byte-idêntico)."
+    },
+    {
+      "id": 6,
+      "name": "simplicio-learn",
+      "icon": "🎓",
+      "role": "Retrospectiva pós-run → lições duráveis, deduplicadas, escritas na memória (AGENTS.md / .orchestrator/lessons.jsonl).",
+      "absorbs": "continual-learning + teaching (cursor)",
+      "path": ".claude/skills/simplicio-learn/SKILL.md",
+      "token_impact": "Mais inteligente a cada run",
+      "captures": [
+        "Corrections — comando que falhou e quase-idêntico que funcionou {wrong→right, error-class, count}; exclui compile/test failures e human-rejections",
+        "Solved precedents — fingerprint do problema → shape da solução (reuso, não regeneração)",
+        "Bug patterns — .orchestrator/patterns.jsonl {fingerprint, root_cause, symptom_pattern, fix_summary, sibling_files, hit_count, last_seen}; hit_count>1 sinaliza módulo p/ atenção estrutural",
+        "Stable facts & preferences — build command, test runner, repo conventions, preferências do usuário"
+      ],
+      "output": "learned: <N new> · merged <M dups> · pruned <P>; cap ~12 bullets por seção (evict lowest-count, oldest first); silêncio se nada durável surgiu"
+    }
+  ],
+
+  "accelerators_and_integrations": [
+    { "id": 7, "name": "Understand Anything", "icon": "🧭", "absorbs": "Egonex-AI/Understand-Anything", "what": "Orient por knowledge graph: semantic search, guided tours, dependency graph", "token_impact": "L0 zero tokens", "trigger": ".understand-anything/knowledge-graph.json existe → orientação primária no lugar de signatures-only reads" },
+    { "id": 8, "name": "agentsview", "icon": "📊", "absorbs": "kenn-io/agentsview", "what": "Session analytics, cost tracking, descoberta de sessões paradas (stalled-session recovery)", "token_impact": "L1 SQL only", "worker": "scripts/agentsview_adapter.py", "verbs": ["list_ready", "get_details", "claim", "update_status", "attach_evidence", "close", "cost_summary", "agent_breakdown"] },
+    { "id": 9, "name": "LMCache", "icon": "⚡", "absorbs": "LMCache/LMCache", "what": "KV cache entre turnos do loop — 40-70% redução de TTFT em modelos locais (2-10× dependendo do hit ratio)", "token_impact": "GPU time ↓", "install": "pip install lmcache", "relevance": "L2 (fast local) e L3 (strong local); cloud já faz KV cache server-side", "config_env": ["LMCACHE_ENABLED=true", "LMCACHE_CACHE_DIR=~/.cache/lmcache", "LMCACHE_MAX_CACHE_SIZE_GB=10"] },
+    { "id": 10, "name": "Simplicio capture engine", "icon": "🗜️", "absorbs": "engine/simplicio_engine.py (nativo, stdlib-only; savings-schema compatível com headroom OSS)", "what": "Proxy de captura transparente: encaminha ao provider real, mede + comprime deterministicamente, escreve proxy_savings.json", "token_impact": "deterministic", "port": 8788 },
+    { "id": 11, "name": "video_evidence (hyperframes)", "icon": "🎬", "absorbs": "heygen-com/hyperframes", "what": "Renderiza MP4 demonstrativo DETERMINÍSTICO de uma tela/feature — cumpre '/simplicio-tasks faça um vídeo demonstrativo da tela X' E serve como prova CI-reproduzível de que a mudança de UI funciona", "token_impact": "Evidence producer", "worker": "scripts/video_evidence.py", "contract": "references/video-evidence.md", "requires": "Node 22+ + FFmpeg + hyperframes (sem API keys); toolchain ausente = BLOCKED, nunca fake-pass" }
+  ],
+
+  "bound_operators_required_by_loop": {
+    "note": "O simplicio-loop NÃO survey/edita com o LLM — delega a dois CLIs instalados, hard deps de 'pip install simplicio-loop' (o loop BLOCKa se faltar). A IA DECIDE; os operadores AGEM.",
+    "operators": [
+      {
+        "name": "simplicio-mapper",
+        "binary": "simplicio-mapper",
+        "pip_pkg": "simplicio-mapper",
+        "repo": "https://github.com/wesleysimplicio/simplicio-mapper",
+        "binds": ["orient", "recall"],
+        "role": "SURVEY — mapeia o(s) repo(s) em .simplicio/*.json (project-map, precedent-index, symbol-index, call-graph, docs). Esse levantamento, não uma leitura ad-hoc do LLM, alimenta o goal a cada turno.",
+        "preflight": "simplicio-mapper --version",
+        "survey_cmd": "simplicio-mapper index . --json (add --watch para runs longos)"
+      },
+      {
+        "name": "simplicio-dev-cli",
+        "binary": "simplicio-dev-cli",
+        "pip_pkg": "simplicio-cli",
+        "repo": "https://github.com/wesleysimplicio/simplicio-dev-cli",
+        "binds": ["execute", "deterministic_edit", "validate", "diagnostics"],
+        "role": "OPERATE — aplica uma mudança DECIDIDA via seu contrato de 6 camadas (mapper context → precedent → prompt → diff → test → verify, ≤3 retries). O CLI edita e verifica; a IA não escreve o diff à mão.",
+        "preflight": "simplicio-dev-cli --help (não tem --version; --help exit 0 = readiness)",
+        "operate_cmd": "simplicio-dev-cli task \"<decided, AC-scoped change>\" --target <file> [--json]",
+        "note": "O binário de ação é simplicio-dev-cli (pkg simplicio-cli), NÃO o bare 'simplicio' (reservado ao Rust simplicio-runtime)."
+      }
+    ],
+    "block_message": "simplicio-loop: BLOCKED — missing operator <name>; run: pip install simplicio-loop"
+  },
+
+  "the_full_flow_11_layers": {
+    "description": "Cada camada que o orquestrador atua, em ordem — da leitura da demanda à entrega de trabalho mergeado e evidenciado, depois loop 24/7. (Extraído do mermaid flowchart do README.)",
+    "layers": [
+      { "n": 1, "name": "Demand sources (any adapter)", "items": ["GitHub Issues/PRs/CI", "Jira · Azure DevOps · Linear · ClickUp · Monday · Notion · agentsview · Understand Anything (orient)", "Assigns · TODO/FIXME · CVE · local files · LMCache (inference accelerator)"] },
+      { "n": 2, "name": "Pre-flight gates", "items": ["cost kill-switch budget · agentsview cost check", "source auth + scopes", "arm 24/7 watcher"] },
+      { "n": 3, "name": "Discover + normalize", "items": ["source_adapter: list metadata only", "normalize to canonical schema", "dedup id+title+fingerprint+branch/PR", "dependency DAG"] },
+      { "n": 4, "name": "Deep intake (per item)", "items": ["body + ALL comments", "extract acceptance criteria", "orient code · signatures-only reads or Understand Anything knowledge graph", "plan + AC checklist + complexity"] },
+      { "n": 5, "name": "Route", "items": ["Fast-path: solo, one targeted test (small AND every item complexity ≤3)", "Heavy-path: continuous worker pool (large queue OR any medium+)"] },
+      { "n": 6, "name": "Continuous worker pool (autoscaled, conflict-aware)", "items": ["claim · branch · worktree if overlap", "deterministic_edit", "quality loop: edit-lint-test-fix"] },
+      { "n": 7, "name": "Quality gates", "items": ["AC gate = real DoD", "WORKS not just compiles · web_verify (Playwright) · video_evidence (hyperframes MP4)", "adversarial review · thermos rubrics"] },
+      { "n": 8, "name": "Safety gates (non-negotiable)", "items": ["secret-scan", "irreversible-op human gate", "4-state verdict · attestation"] },
+      { "n": 9, "name": "Deliver", "items": ["commit · push · Draft PR", "close in-source + evidence", "verify reality, not self-report"] },
+      { "n": 10, "name": "Feedback loop to merge-ready", "items": ["CI fail → fix root cause", "review comments → adjust", "branch behind main → additive rebase"] },
+      { "n": 11, "name": "24/7 watcher", "items": ["simplicio-loop evidence-gated promise", "max-iterations cap", "cost kill-switch", "LMCache KV cache warm", "re-feed the goal → DISCOVER"] }
+    ]
+  },
+
+  "the_loop_mechanism": {
+    "name": "Evidence-Gated Loop",
+    "core": "Re-alimenta o mesmo goal a cada turno para o agente ver seu próprio trabalho anterior.",
+    "exit_conditions": [
+      "Evidence-gated <promise> — o turno que emite o promise DEVE carregar prova concreta (teste passando, PR mergeado, re-query de item fechado). Promise sem evidência = ignorado.",
+      "max_iterations cap — backstop de segurança (default: 3× item-count, min 10; ou 0 só quando há teto de budget $)",
+      "Budget kill-switch — daily_usd_ceiling para o loop quando gasto",
+      "STOP signal — .orchestrator/STOP ou comando de canal"
+    ],
+    "between_turns": "Quando disponível, LMCache cacheia o estado KV para re-feed com prefill near-zero.",
+    "anti_oscillation": {
+      "journal": ".orchestrator/loop/journal.jsonl (append-only)",
+      "worker": "scripts/loop_journal.py (determinístico + model-free, selftest 9/9)",
+      "error_fingerprint": "Saída do gate falho reduzida a hash estável (line numbers, paths, hex/uuid, timestamps, durações normalizados)",
+      "stall_definition": "K falhas idênticas em fila (default K=3) = STALLED; fingerprint mudando = PROGRESS",
+      "on_stall": "NÃO re-alimenta o mesmo goal — nomeia dead-end actions, troca de estratégia ou escala ao human gate com o fingerprint",
+      "cli": ["loop_journal.py resume", "loop_journal.py record --iteration N --action ... --gate fail --gate-output test.log", "loop_journal.py stall --k 3 --exit-code", "loop_journal.py since", "loop_journal.py fingerprint", "loop_journal.py status", "loop_journal.py selftest"]
+    },
+    "hooks": {
+      "afterAgentResponse → loop_capture.py": "Extrai <promise>; se == completion_promise E há evidência in-turn → touch .orchestrator/loop/done. Fire-and-forget, exit 0.",
+      "stop → loop_stop.py": "Guard clauses: (1) sem scratchpad → stop; (2) frontmatter corrompido → stop; (3) flag done → stop; (4) iteration>=max_iterations>0 → stop (cap); (5) budget halted → stop; senão incrementa iteration e emite followup_message para re-feed."
+    },
+    "cancel": "Apagar .orchestrator/loop/ (análogo cancel-ralph). Flag .orchestrator/STOP ou comando de canal para entre iterações."
+  },
+
+  "video_evidence_hyperframes": {
+    "producer": "hyperframes (HeyGen) — renderiza HTML/CSS/media para MP4 determinístico ('same input, same frames, same output')",
+    "no_api_keys": true,
+    "requires": "Node 22+ + FFmpeg (render local via headless Chrome)",
+    "two_modes": [
+      "On request — o vídeo É o deliverable: '/simplicio-tasks faça um vídeo demonstrativo da tela de login do sistema'",
+      "As proof — o vídeo respalda uma mudança de código (receipt 'works, not just compiles' mais forte, válido como <promise> evidence-gated)"
+    ],
+    "chain": "web_verify (Playwright) captura screenshots por step → video_evidence (hyperframes) monta MP4 captioned determinístico anexado ao PR",
+    "evidence_form": "sempre file path + boolean verdict — nunca bytes de vídeo no contexto (token economy)",
+    "worker_verbs": ["detect", "scaffold", "render", "lint", "verify"],
+    "example_cmds": [
+      "python3 scripts/video_evidence.py detect --goal \"grave um vídeo da tela de checkout\"",
+      "python3 scripts/video_evidence.py verify --name checkout-demo --frames .orchestrator/tee/web --title \"Checkout\" --issue 42 [--upload --pr 42]"
+    ],
+    "v393_fix": "Reescrita da composição para o schema real do hyperframes 0.7.x (#root[data-composition-id] + .clip[data-start/data-duration/data-track-index] via GSAP timeline em window.__timelines); render passa o project dir posicionalmente; screenshots copiadas para <project>/assets/."
+  },
+
+  "token_economy": {
+    "principle": "O token mais barato é o que não se gasta. Deterministic-first, terminal para fatos, modelo só onde paga.",
+    "techniques_table": [
+      { "technique": "deterministic_edit (L0)", "savings": "100% dos edit tokens (arquivo escrito mecanicamente, nunca pelo LLM)" },
+      { "technique": "Terminal-first execution", "savings": "Fatos do shell, não da alucinação do LLM" },
+      { "technique": "Output-reduction catalog", "savings": "Caps por tipo de comando (CAP_ERRORS=20, CAP_WARNINGS=10, CAP_LIST=20, CAP_INVENTORY=50) — orient_clamp.py" },
+      { "technique": "Tee+CCR cache on failure", "savings": "Nunca re-roda comando falho — lê a saída cacheada" },
+      { "technique": "Signatures-only reads", "savings": "simplicio signatures <file> — 870-line → 65 lines (93%), bodies stripped" },
+      { "technique": "simplicio-compress", "savings": "Prosa terse + compactação one-time de memória" },
+      { "technique": "orient_clamp.py", "savings": "Clamp + tee em todo comando shell, zero wiring" },
+      { "technique": "Native response cache", "savings": "Request determinístico (temp=0) repetido → servido do cache, pula a chamada LLM (100% no hit) — simplicio cache; SIMPLICIO_CACHE=0 desabilita" },
+      { "technique": "Simplicio capture proxy + MCP", "savings": "60-95% menos tokens em saídas de tool via daemon de compressão transparente" }
+    ],
+    "output_reduction_catalog": [
+      { "pattern": "test/spec runner", "recipe": "success→pass:N; on fail keep ≤20 error lines", "exp_savings": "~90%", "skip_if": "piped to structured consumer" },
+      { "pattern": "type/compile check", "recipe": "error lines only; clean→ok", "exp_savings": "~80%", "skip_if": "—" },
+      { "pattern": "diff / show", "recipe": "stat + hunks only, drop context", "exp_savings": "~80%", "skip_if": "piped to structured consumer" },
+      { "pattern": "lint", "recipe": "findings only; clean→ok", "exp_savings": "~80%", "skip_if": "—" },
+      { "pattern": "add / commit / push", "recipe": "collapse to ok <branch/sha>", "exp_savings": "~59%", "skip_if": "—" },
+      { "pattern": "PR / list view", "recipe": "counts + titles only", "exp_savings": "~87%", "skip_if": "--json/--jq present" },
+      { "pattern": "package/image inventory", "recipe": "keep ≤50 rows", "exp_savings": "~50%", "skip_if": "—" },
+      { "pattern": "format / passthrough", "recipe": "run raw", "exp_savings": "0%", "skip_if": "always" }
+    ],
+    "clamp_primitives": ["success-collapse (exit 0 + clean pattern + no error/warning → 1 linha)", "dedup-with-counts (line ×N)"],
+    "signal_tiered_caps": { "CAP_ERRORS": 20, "CAP_WARNINGS": 10, "CAP_LIST": 20, "CAP_INVENTORY": 50, "rule": "Sempre manter linhas ERROR sobre contexto; cap rebaixado é underflow-safe; nunca flat head N + tail N" },
+    "tee_ccr": "On non-zero exit: full output em .orchestrator/tee/<ts>_<cmd-slug>.log; surface só o path + linhas de erro. retrieve <path> [--lines a-b] [--grep PATTERN]. Config .orchestrator/orient.toml tee.mode = failures|always|never (default failures).",
+    "model_routing_tiers": {
+      "L0": "Determinístico, ZERO LLM tokens: deterministic_edit, orient, recall",
+      "L1": "Local/cheap mass model: triage, dedup, classify, summarize, status comments, geração repetitiva",
+      "L2": "Mid coding model: implementação + review padrão",
+      "L3": "Reasoning model: planning LARGE/CRITICAL, arquitetura, ambiguidade, adversarial verify de achados arriscados, security review",
+      "L4": "Paid remote (último recurso): só após local não fechar o gap, com escalada registrada"
+    },
+    "autoscale_formula": {
+      "cap_cpu": "max(1, floor((cores - 2) / 2))",
+      "cap_mem": "floor(free_gb / 2)",
+      "cap_disk": "(free_disk_gb < 10) ? 0 : (free_disk_gb < 25 ? 1 : 99)",
+      "fleet": "min(cap_cpu, cap_mem, cap_disk, independent_items, 16)  # hard cap 16/wave",
+      "waves": "ceil(queue_size / fleet)",
+      "fallback": "recursos desconhecidos ou disk < 10GB → fast-path/solo only"
+    },
+    "savings_reporting": {
+      "evidence_gated": true,
+      "rule": "NÃO termina toda mensagem com cifra de savings. Só emite linha de savings quando o turno RODOU técnica que produziu economia MEDIDA, com receipt concreto. Sem economia medida → sem linha (silêncio é honesto). NUNCA fabrica baseline/percentual.",
+      "receipts_that_count": [
+        "orient_clamp.py clampou saída → bytes/lines saved (path do tee)",
+        "signatures-only read (simplicio signatures <file>) → lines saved vs full",
+        "native response-cache hit (simplicio cache) → chamada LLM pulada (100% naquela)",
+        "deterministic_edit aplicou mudança → 0 edit tokens",
+        "capture proxy / savings_ledger / savings_harness score → gasto medido vs baseline real"
+      ],
+      "format_example": "savings: signatures 870→65 lines (93%) · clamp 12KB→0.4KB (tee=.orchestrator/tee/…) · cache hit ×1",
+      "baseline_definition": "control arm = caminho NÃO-orquestrado mais barato e sensato para o MESMO resultado (passe genérico 'answer concisely' só nos arquivos genuinamente necessários), NÃO um strawman verboso; medido via savings_harness snapshot→score com tokenizer fixo"
+    }
+  },
+
+  "token_monitor": {
+    "capture_proxy": { "always_on": true, "port": 8788, "role": "Captura + mede Claude + Codex + Hermes em background; o único serviço auto-started", "savings_file": "~/.simplicio/proxy_savings.json (schema v3)" },
+    "web_dashboard": { "url": "http://127.0.0.1:9090", "shows": ["chart de tokens em tempo real", "savings gauge", "LLMs/runtimes e 141/144 providers (98%) interceptados", "live proxy log"], "opens_once": "na primeira instalação (marker-guarded; re-install/update não reabre; opt-out SIMPLICIO_NO_DASHBOARD=1)", "reopen": ["simplicio-loop dashboard", "simplicio-loop dashboard --stop", "simplicio-loop dashboard --no-browser", "bash scripts/simplicio-economy.sh monitor", "perguntar ao agente: 'open the token dashboard'"] },
+    "tray_widget": { "what": "Tokens salvos ao vivo na system tray (macOS rumps · Windows/Linux pystray)", "on_demand": ["bash scripts/simplicio-economy.sh tray", "… tray stop"], "never_opens_by_itself": true },
+    "service_backends": { "macOS": "launchd", "Linux": "systemd --user", "Windows": "Startup folder" },
+    "economy_per_runtime": {
+      "Hermes": "Economy ✓ · Measurement ✓ automático (já roteado via proxy base_url → :8788)",
+      "Claude": "Economy ✓ (skill + hooks) · Measurement ✗ por default (fala com api.anthropic.com direto); medido após simplicio wrap claude ou ANTHROPIC_BASE_URL → http://127.0.0.1:8788",
+      "Codex": "Economy ✓ (skill) · Measurement ✗ por default; medido com simplicio wrap codex ou OpenAI base-url no proxy"
+    },
+    "wire_cmd": "scripts/simplicio-economy.sh wire (roteia clients OpenAI-compat no install)"
+  },
+
+  "capture_engine": {
+    "module": "engine/simplicio_engine.py",
+    "description": "Engine de captura nativa Simplicio (stdlib-only, fail-open) — reimplementação completa da superfície do upstream headroom sem dependência externa",
+    "wrapper": "scripts/simplicio-engine (prefere o módulo Python nativo; fallback ao binário upstream só se ausente)",
+    "port": 8788,
+    "port_env": "SIMPLICIO_PROXY_PORT",
+    "files_written": {
+      "~/.simplicio/proxy_savings.json": "Savings ledger schema v3 (lifetime, display_session, history cap 5000)",
+      "~/.simplicio/memory.json": "CCR key-value store (zlib+base64 + savings por entrada)",
+      "~/.simplicio/cache/": "Response cache (LRU, 500 entries / 50MB, .json por shard sha256)",
+      "~/.simplicio/logs/proxy.log": "START/PERF/UPSTREAM_ERROR",
+      "~/.simplicio/copilot_oauth.json": "GitHub Copilot OAuth token (chmod 600)"
+    },
+    "provider_families": ["OpenAI (gpt,o1,o3,o4,chatgpt)", "Anthropic (claude)", "DeepSeek", "XAI (grok)", "Mistral/Mixtral", "Google (gemini)", "LLaMA"],
+    "commands": [
+      { "cmd": "proxy", "what": "Proxy de captura transparente — roteia cada modelo ao provider REAL, comprime+mede+cacheia (sem swap de modelo)" },
+      { "cmd": "doctor", "what": "Reachability do proxy + lifetime savings" },
+      { "cmd": "cache", "what": "Response cache nativo (stats/clear) — request determinístico repetido servido do cache" },
+      { "cmd": "signatures", "what": "Visão signatures-only de um arquivo (bodies stripped, ~93% menos tokens)" },
+      { "cmd": "semantic", "what": "Compressão extractiva reversível (semantic-lite)" },
+      { "cmd": "kompress", "what": "ONNX semantic token-pruning via kompress-v2-base real" },
+      { "cmd": "detect", "what": "Detecção de content-type + roteamento smart por bloco" },
+      { "cmd": "rag", "what": "TF-IDF (ou --ml embedding) retrieval sobre o CCR memory store" },
+      { "cmd": "memory", "what": "CCR compress-cache-retrieve store (remember/recall/forget/list/stats)" },
+      { "cmd": "mcp", "what": "MCP server stdio nativo (tools compress/retrieve/stats)" },
+      { "cmd": "init / wrap", "what": "Registra Simplicio num client (Claude/Codex/Copilot/OpenClaw) · roda client com routing de captura" },
+      { "cmd": "report / audit / capture / evals", "what": "savings report · audita árvore por oportunidade · dry-run de request · gate de regressão de compressão" },
+      { "cmd": "verify / embed / image / router", "what": "self-check 8 probes · ONNX embeddings · image-compression · technique routing" }
+    ],
+    "onnx_models": [
+      { "model": "kompress-v2-base", "cmd": "simplicio kompress", "use": "semantic token pruning", "size": "~274MB", "hf": "chopratejas/kompress-v2-base" },
+      { "model": "technique-router-onnx", "cmd": "simplicio router", "use": "technique routing", "size": "~32MB", "hf": "chopratejas/technique-router-onnx" },
+      { "model": "all-MiniLM-L6-v2-onnx", "cmd": "simplicio embed · rag --ml", "use": "embeddings + semantic RAG", "size": "~90MB", "hf": "Qdrant/all-MiniLM-L6-v2-onnx" },
+      { "model": "siglip-image-encoder-onnx", "cmd": "simplicio image", "use": "image-compression content verifier" }
+    ],
+    "onnx_install": "pip install \"simplicio-loop[onnx]\" (onnxruntime + huggingface_hub + tokenizers + numpy + pillow); modelos baixam no primeiro uso"
+  },
+
+  "engine_modules": [
+    { "file": "simplicio_engine.py", "role": "Proxy server + dispatcher (porta 8788). Encaminha com compressão determinística, grava savings. Cmds: proxy, doctor, memory." },
+    { "file": "simplicio_cli.py", "role": "Launcher unificado (entry bin/simplicio). Dispatch via os.execv para o engine; inline compress (stdin→stdout) e version/help." },
+    { "file": "simplicio_compress.py", "role": "Compressão determinística base 8-algoritmos (whitespace collapse, ANSI strip, rule-run dedup, JSON minify, line dedup, blank-line collapse, hex/log folding). Stdlib, fail-open, idempotente." },
+    { "file": "simplicio_compress_extra.py", "role": "4 algoritmos extras: markdown table padding trim, repeated block folding, long token elision, numbered-noise folding." },
+    { "file": "simplicio_detect.py", "role": "Content-type router (JSON/code/log/markdown/prose por heurística, sem ML). Direciona ao melhor compressor lossless por tipo." },
+    { "file": "simplicio_semantic.py", "role": "Compressão extractiva reversível 'semantic-lite' via TF-IDF + SimHash near-dedup. Determinístico, lossless via semantic_restore()." },
+    { "file": "simplicio_semantic_ml.py", "role": "Dedup semântico por embedding (model2vec opcional); fallback determinístico se deps ausentes. CLI: simplicio semantic --ml." },
+    { "file": "simplicio_kompress.py", "role": "Headroom ONNX token-pruning real via chopratejas/kompress-v2-base (ModernBERT int8); reversível via restore_info." },
+    { "file": "simplicio_tokens.py", "role": "Token estimator stdlib-only (~15% do BPE real); per-class weighting (~4.0 chars/token prosa, ~3.2 code)." },
+    { "file": "simplicio_signatures.py", "role": "Extrator de esqueleto estrutural (Python via AST, outros via regex); emite imports/signatures/docstring headers; 80-95% de economia." },
+    { "file": "simplicio_cache.py", "role": "Response cache content-addressed (LRU, 500 entries/50MB); só cacheia request determinístico (temp=0, non-streaming). ~/.simplicio/cache/." },
+    { "file": "simplicio_memory.py", "role": "CCR (compress-cache-retrieve) key-value store; zlib+base64 lossless; ~/.simplicio/memory.json; thread-safe." },
+    { "file": "simplicio_rag.py", "role": "Retrieval TF-IDF/cosine sobre o CCR store (sem embeddings/vector DB). CLI: simplicio rag \"<query>\"." },
+    { "file": "simplicio_image.py", "role": "Compressão de tokens de imagem para vision-LLM via Pillow + SigLIP ONNX verifier opcional. Técnicas: preserve, full_low, crop, transcode, auto." },
+    { "file": "simplicio_embed.py", "role": "ONNX sentence embeddings via Qdrant/all-MiniLM-L6-v2-onnx (384-dim); alimenta RAG/memory. Exit 3 se deps ausentes." },
+    { "file": "simplicio_copilot.py", "role": "GitHub Copilot OAuth manager (device-code flow → bearer token). ~/.simplicio/copilot_oauth.json (chmod 600)." },
+    { "file": "simplicio_audit.py", "role": "Scanner: aplica compressão a cada arquivo de texto, ranqueia por savings. CLI: simplicio audit ./logs --top 10 --json." },
+    { "file": "simplicio_capture.py", "role": "Dry-run analyzer: payload OpenAI/Anthropic JSON → mostra savings por mensagem SEM enviar. CLI: simplicio capture --file body.json." },
+    { "file": "simplicio_evals.py", "role": "Harness de eval/regressão de compressão (~10 amostras logs/hex/prose/code). Exit 0 se passa. CLI: simplicio evals --json." },
+    { "file": "simplicio_verify.py", "role": "Self-check 1-comando: 8 probes (proxy, monitor port, savings file, engine version, compression, memory, MCP, operator CLI). PASS/WARN/FAIL." },
+    { "file": "simplicio_init.py", "role": "Writer de config de client (idempotente, atômico). Registra MCP no codex/claude/copilot/openclaw. Dry-run por default; --apply escreve." },
+    { "file": "simplicio_wrap.py", "role": "Roda client com routing de captura (injeta OPENAI_BASE_URL, ANTHROPIC_BASE_URL). CLI: simplicio wrap codex -- chat." },
+    { "file": "simplicio_mcp.py", "role": "MCP server stdio JSON-RPC 2.0; 3 tools: simplicio_compress, simplicio_retrieve, simplicio_stats." },
+    { "file": "simplicio_router.py", "role": "Classificador de técnica (headroom chopratejas/technique-router-onnx); roteia texto à técnica certa." },
+    { "file": "simplicio_report.py", "role": "Leitor do savings ledger (~/.simplicio/proxy_savings.json schema v3); lifetime/session/per-model. CLI: simplicio report --json --since 120 --top 5." }
+  ],
+
+  "rust_crates": {
+    "note": "rust/ traz 4 crates portados+rebrandeados do upstream headroom (Apache-2.0; NOTICE credita). Build com maturin — o engine Python funciona 100% sem eles; os crates só somam velocidade nativa.",
+    "crates": [
+      {
+        "name": "simplicio-core",
+        "files": "~79 Rust",
+        "role": "Fundação: transforms de compressão, tokenizers, CCR storage, relevance scoring, signal detection.",
+        "upstream": "headroom-core",
+        "key_modules": {
+          "transforms": ["smart_crusher (compressor estatístico de arrays JSON, ~52 files)", "diff_compressor", "log_compressor", "search_compressor", "text_crusher", "live_zone (Anthropic/OpenAI)", "detection (magika+unidiff+PlainText)", "anchor_selector", "tag_protector", "adaptive_sizer", "pipeline (orchestrator multi-pass)"],
+          "ccr": ["backends: in_memory (DashMap), sqlite (default, WAL), redis (multi-worker opt-in)"],
+          "tokenizer": ["tiktoken_impl", "hf_impl", "registry", "estimator"],
+          "signals": ["keyword_detector (aho-corasick DFA)", "line_importance", "tiered"],
+          "relevance": ["embedding (fastembed/ONNX bge-small)", "bm25", "hybrid"]
+        },
+        "deps_notable": ["serde", "tiktoken-rs", "tokenizers", "hf-hub", "dashmap", "fastembed", "magika", "unidiff", "aho-corasick", "rayon", "blake3", "rusqlite", "redis (opt)"],
+        "benches": ["tokenizer.rs", "ccr_store.rs", "auth_mode.rs"]
+      },
+      {
+        "name": "simplicio-py",
+        "role": "Bindings PyO3 expondo simplicio-core ao Python como simplicio._core (drop-in do headroom-py). Libera GIL (py.allow_threads) nos transforms pesados.",
+        "upstream": "headroom-py",
+        "exports": ["DiffCompressor", "SmartCrusher", "SearchCompressor", "LogCompressor", "TextCrusher", "DetectionResult", "score_line/content_has_error_indicators/keyword_registry_snapshot"],
+        "build": "build.rs compila glibc_compat.c no Linux/glibc; cdylib (extension module)"
+      },
+      {
+        "name": "simplicio-proxy",
+        "files": "~50 Rust",
+        "role": "Reverse proxy transparente (HTTP/SSE/WebSocket) à frente do proxy Python. Framework: axum 0.7 + tower.",
+        "upstream": "novo (Phase 1, sem upstream)",
+        "providers": ["Anthropic (/v1/messages)", "OpenAI (/v1/chat/completions, /v1/responses)", "AWS Bedrock (SigV4 nativo, InvokeModel + streaming)", "Google Vertex AI (ADC)"],
+        "key_modules": ["compression (live_zone_anthropic/openai/responses, model_limits)", "bedrock (invoke, invoke_streaming, sigv4, envelope, eventstream, eventstream_to_sse, auth_mode_layer)", "vertex (raw_predict, stream_raw_predict, adc, envelope)", "cache_stabilization (drift_detector, volatile_detector, openai_cache_key, anthropic_cache_control, tool_def_normalize)", "sse (framing, openai_chat, openai_responses, anthropic)", "observability (prometheus, proxy_metrics, compression_ratio, cache_hit_rate)", "handlers (chat_completions, conversations, responses)", "proxy.rs", "config.rs", "health.rs", "websocket.rs"],
+        "tests": "50+ files de integração (bedrock, vertex, cache drift, schema sort, sse framing 100K property-test cases, http/sse/ws passthrough, e2e_real)"
+      },
+      {
+        "name": "simplicio-parity",
+        "role": "Harness de paridade Rust↔Python: valida o port contra fixtures Python gravados.",
+        "upstream": "novo",
+        "binary": "parity-run",
+        "phase": "Phase 0 — comparators per-transform são stubs (todo!()); wiring do harness é real e testado"
+      }
+    ]
+  },
+
+  "scripts": [
+    { "file": "scripts/install.sh", "role": "Launcher bash p/ install_lib.py; detecta python3 e delega ao installer cross-platform." },
+    { "file": "scripts/install.ps1", "role": "Wrapper PowerShell (Windows) p/ install_lib.py; mapeia -Global/-Target." },
+    { "file": "scripts/install_lib.py", "role": "Installer universal (uma lógica, 11 runtimes). Copia 6 skills + hooks, wira o loop onde suportado, garante entry file, imprime linhas MCP-bind. Cria-ou-merge, idempotente." },
+    { "file": "scripts/install_services.py", "role": "Installer cross-platform dos serviços de token-economy (capture proxy, monitor, tray). Backends: launchd/systemd/Startup. Verbs: install, uninstall, status." },
+    { "file": "scripts/doctor.py", "role": "Verifica/repara o stack inteiro. Separa REQUIRED (python3, 2 operadores, 6 skills, loop hooks, capture proxy) de OPTIONAL (ONNX models, Rust core, tray dep). --repair, --json. Exit 0 se todos REQUIRED healthy." },
+    { "file": "scripts/update.sh", "role": "git pull → reinstala skills/hooks/operadores → reinicia serviços. Stash/restore de edits locais." },
+    { "file": "scripts/setup_simplicio.sh", "role": "Instala+configura Token Monitor e capture proxy; cria plists launchd; adiciona env vars ao shell." },
+    { "file": "scripts/simplicio-economy.sh", "role": "Entrypoint do módulo de token-economy. Verbs: status, up, monitor [stop], wire, doctor, tray, capture <provider>." },
+    { "file": "scripts/simplicio-capture.sh", "role": "Wira captura de tokens entre runtimes via engine nativa. Verbs: status, init [client]. 3 tiers: native clients, base-url runtimes, proprietary APIs." },
+    { "file": "scripts/simplicio-engine", "role": "Entrypoint bash da engine (proxy + doctor + memory). Prefere o módulo Python nativo; fallback ao binário upstream." },
+    { "file": "scripts/check.py", "role": "Local CI runner (zero-custo, stdlib). Roda claims_audit.py + test suite (pytest ou self-run stdlib). Exit 0 só se tudo passa; git pre-push hook." },
+    { "file": "scripts/claims_audit.py", "role": "Audita claims mecânicas dos docs (fail-closed, determinístico, sem rede). 4 checks: (1) referenced-scripts-exist; (2) extension-point-count consistente; (3) cited-commands-run (selftest/py_compile); (4) bundle-parity (.claude/skills ≡ simplicio_loop/_bundle byte-idêntico)." },
+    { "file": "scripts/verify_adapters.py", "role": "Verifica o installer nos 11 runtimes (alvo descartável): 6 skills copiadas, entry file com marker, hooks presentes, Claude settings wired. Exit 0/1." },
+    { "file": "scripts/loop_journal.py", "role": "Run-journal + stall/progress detector (memória do loop). Determinístico, model-free. Verbs: record, fingerprint, stall, resume, status, since, selftest (9/9)." },
+    { "file": "scripts/savings_harness.py", "role": "Harness de medição de savings (snapshot + scorer offline). Generator caro snapshota baseline/treatment; scorer barato re-lê com tokenizer fixo (sem chamada de modelo). Verbs: snapshot, score, selftest." },
+    { "file": "scripts/billing_aggregator.py", "role": "Engine de billing determinístico, model-free, privacy-preserving sobre o metering existente. Verbs: collect, meter, invoice, export, rates, selftest (11/11)." },
+    { "file": "scripts/video_evidence.py", "role": "Produz MP4 demonstrativo determinístico via hyperframes. Evidence = path + verdict. Verbs: detect, scaffold, render, lint, verify." },
+    { "file": "scripts/web_verify.py", "role": "Dirige Chromium headless p/ provar front-end (screenshot + trace). Backends: npx (Playwright) ou pytest (playwright-python). Verbs: detect, run, verify." },
+    { "file": "scripts/agentsview_adapter.py", "role": "Conecta ao agentsview (SQLite local ou HTTP API) p/ descobrir sessões paradas e alimentar custo no budget. Verbs: list_ready, get_details, claim, update_status, attach_evidence, close, cost_summary, agent_breakdown." },
+    { "file": "scripts/az_boards_adapter.py", "role": "Binding p/ Azure DevOps (az boards/repos/pipelines). Verbs: list_ready, get_details, claim, update_status, attach_evidence, close, open_pr, pr_status, run_pipeline, pipeline_status." }
+  ],
+
+  "hooks": {
+    "note": "hooks/ traz hooks cross-platform Python 3 (idênticos em Win/macOS/Linux). A maioria é fail-open (erro/incerteza → deixa parar e o comando rodar). A EXCEÇÃO é action_gate.py: fail-CLOSED (exit 2 em op irreversível ou segredo no diff staged).",
+    "list": [
+      { "file": "loop_stop.py", "role": "simplicio-loop: re-feed do goal ou exit (promise evidence-gated + cap + budget)", "event": "stop / Claude Stop", "fail_mode": "fail-open" },
+      { "file": "loop_capture.py", "role": "simplicio-loop: levanta a flag done quando um <promise> com evidência é visto", "event": "Cursor afterAgentResponse", "fail_mode": "fail-open" },
+      { "file": "action_gate.py", "role": "safety FAIL-CLOSED: bloqueia force-push, history rewrite (filter-branch), remote-ref delete, mass-delete (rm -rf /), DDL destrutivo (DROP DATABASE), infra teardown (terraform destroy), e qualquer commit/push com segredo no diff (AWS/GitHub/Slack/OpenAI keys, private keys, creds hardcoded — placeholder-aware). selftest prova a ruleset (14/14).", "event": "PreToolUse (Bash) / git pre-push", "fail_mode": "fail-CLOSED" },
+      { "file": "orient_clamp.py", "role": "simplicio-orient WRAPPER: roda comando, retorna saída reduzida + tee-on-failure. Zero wiring, qualquer runtime.", "event": "chamado direto", "fail_mode": "fail-open" },
+      { "file": "orient_rewrite.py", "role": "simplicio-orient: auto-roteia comandos read-only pesados pelo clamp (opt-in). Nunca reescreve writes/excluded/compound.", "event": "PreToolUse", "fail_mode": "fail-open" },
+      { "file": "learn_stop.py", "role": "simplicio-learn: enfileira o run finalizado p/ retrospectiva", "event": "stop / SubagentStop", "fail_mode": "fail-open" },
+      { "file": "simplicio_dashboard.py", "role": "Dashboard server (token monitor web em :9090)", "event": "auxiliar", "fail_mode": "—" },
+      { "file": "simplicio_watch.py", "role": "Watcher de token monitor", "event": "auxiliar", "fail_mode": "—" }
+    ],
+    "manifests": ["hooks/hooks.json (formato Cursor)", "hooks/hooks.claude.json (formato Claude usado pelo plugin)"],
+    "claude_wiring": { "Stop": ["python3 ./hooks/loop_stop.py", "python3 ./hooks/learn_stop.py"], "PreToolUse(Bash)": ["python3 ./hooks/action_gate.py", "python3 ./hooks/orient_rewrite.py"] },
+    "git_pre_push": "printf '#!/bin/sh\\npython3 hooks/action_gate.py check --staged\\n' > .git/hooks/pre-push && chmod +x .git/hooks/pre-push"
+  },
+
+  "extension_points_48": {
+    "rule": "Em cada ponto: se o host expõe capacidade nativa, BIND (determinístico, near-zero token); senão o LLM faz o fallback. O skill depende da ABSTRAÇÃO, nunca do runtime. Regra core: toda mudança DECIDIDA passa por deterministic_edit.",
+    "points": [
+      { "name": "orient", "what": "Mapa comprimido do repo/trabalho", "fallback": "rg/git grep/git log + ler poucos arquivos; ou .understand-anything/knowledge-graph.json" },
+      { "name": "pattern_match", "what": "Casa fingerprint de root-cause contra .orchestrator/patterns.jsonl; hit_count>1 sinaliza módulo", "fallback": "LLM busca PRs/issues por keyword, extrai root cause do git history" },
+      { "name": "recall", "what": "Decisões/precedentes prévios", "fallback": "ler ADRs/git history/PRs passados" },
+      { "name": "normalize", "what": "Work-item → schema canônico", "fallback": "LLM mapeia campos à mão" },
+      { "name": "deterministic_edit", "what": "Writer mecânico (zero-token apply de mudança decidida)", "fallback": "LLM aplica edit com file tool" },
+      { "name": "autoscale", "what": "Tamanho seguro do fleet a partir do perfil da máquina", "fallback": "fórmula em orchestration.md" },
+      { "name": "plan / decide", "what": "Suporte a plano/decisão", "fallback": "LLM raciocina" },
+      { "name": "execute", "what": "Fan-out de agente local p/ trabalho mecânico/em massa", "fallback": "LLM faz ou spawna sub-agents do host" },
+      { "name": "issue_factory", "what": "Loop completo: discover→claim→implement→PR", "fallback": "pipeline manual (Steps 2-6)" },
+      { "name": "claim", "what": "Claim atômico num work-item (cross-session safe)", "fallback": "gh label in-progress + lockfile" },
+      { "name": "worktree", "what": "Checkout isolado por item", "fallback": "git worktree add" },
+      { "name": "diagnostics", "what": "Parse de build/test → erros estruturados → iterate-until-green", "fallback": "roda o teste, lê o log, conserta" },
+      { "name": "validate / smoke", "what": "Run-verification ('works, not just compiles')", "fallback": "invoca binário, roda testes afetados" },
+      { "name": "pr / evidence", "what": "PR open/update + ledger de evidência verificável", "fallback": "gh pr + arquivo de receipt" },
+      { "name": "watcher", "what": "Scheduler/poller durável (sobrevive reboot)", "fallback": "OS cron / scheduled task / session loop" },
+      { "name": "savings_ledger", "what": "Tracking REAL de gasto de tokens por sessão", "fallback": "estima ceil(chars/4)" },
+      { "name": "capability_rank", "what": "Ranqueia qual skill/tool serve um sub-task", "fallback": "LLM escolhe" },
+      { "name": "compress", "what": "Compressão de contexto / clamp de output", "fallback": "resumir a bullets, head+tail; ou headroom proxy" },
+      { "name": "trajectory", "what": "Registra outcome do run p/ self-improvement", "fallback": "log manual" },
+      { "name": "learn", "what": "Aprende do run — atualiza precedentes/memória", "fallback": "ADR manual" },
+      { "name": "human_gate", "what": "Canal de aprovação humana assíncrono", "fallback": "perguntar inline" },
+      { "name": "shell_exec", "what": "Execução shell clampada (saída estruturada, tamanho limitado)", "fallback": "Bash com | head -N" },
+      { "name": "retry", "what": "Retry+backoff classificado por classe de falha", "fallback": "loop de retry manual" },
+      { "name": "status", "what": "Dashboard de observabilidade ao vivo", "fallback": "queries gh" },
+      { "name": "security", "what": "Scan de supply-chain / segredo", "fallback": "rg por segredos" },
+      { "name": "intake", "what": "Ingere trabalho de sprint/board link", "fallback": "gh issue list" },
+      { "name": "dependency_graph", "what": "Ordenação inter-item como DAG resumível", "fallback": "LLM topo-sort por depends-on/blocked-by" },
+      { "name": "durable_workflow", "what": "Pipeline por item como state-machine de fases resumível", "fallback": "LLM dirige fases, journala fase atingida" },
+      { "name": "work_queue", "what": "Fila de prioridade durável que roda+auto-retries+requeue, com lock de write-serialization", "fallback": "LLM mantém fila JSONL/SQLite + lockfile+TTL" },
+      { "name": "resource_governor", "what": "Throttle dinâmico mid-loop + tetos por machine-tier", "fallback": "LLM re-probe CPU/RAM/load por tick" },
+      { "name": "delivery_gate", "what": "Um gate de DoD: AC + run-verification + regression + diff self-review + certificate", "fallback": "LLM caminha o checklist" },
+      { "name": "action_gate", "what": "Risk-classify de toda mutação (safe/auto/ask) + blocklist hardline antes de rodar", "fallback": "LLM pattern-match vs lista irreversível, secret-scan" },
+      { "name": "repo_conventions", "what": "Descobre convenções: CONTRIBUTING branch rules, commit scopes, AGENTS dev policies, PR template, CI commands", "fallback": "LLM lê CONTRIBUTING + AGENTS + .github + pyproject" },
+      { "name": "pr_template", "what": "Descobre .github/PULL_REQUEST_TEMPLATE.md, mapeia ACs → checklist, auto-preenche o PR body", "fallback": "LLM lê o template e preenche" },
+      { "name": "reuse_precedent", "what": "Casa item por fingerprint a um run SOLVED prévio → reusa não regenera → ingere a nova solução", "fallback": "LLM grepa PRs/issues/patterns por fingerprint" },
+      { "name": "sibling_search", "what": "Dado arquivo/função/pattern mudado, acha TODOS os outros call sites com o mesmo pattern — fix cobre a classe inteira, não 1 instância", "fallback": "LLM usa rg + git log -p -S, confirma cada sibling" },
+      { "name": "source_adapter", "what": "Contrato uniforme de connector (list_ready/get_details/claim/update/attach/close) por fonte", "fallback": "LLM chama CLI/REST por verb; lockfile/label com TTL" },
+      { "name": "prompt_budget", "what": "Envelope de prompt token-budgeted + cache de fragmento", "fallback": "LLM capa contexto por sub-task (chars/4)" },
+      { "name": "model_route", "what": "Escolhe o substrato mais barato viável por sub-task (L0→L4); LMCache KV cache", "fallback": "LLM aplica a tabela de tiers" },
+      { "name": "model_preflight", "what": "Sonda que um modelo está presente+saudável antes de rotear; senão fail-fast ou next tier", "fallback": "LLM pinga endpoint / confirma modelo local" },
+      { "name": "toolchain_detect", "what": "Detecta quais toolchains de build/lint/typecheck/test o repo tem", "fallback": "LLM inspeciona manifests/lockfiles + PATH" },
+      { "name": "checkpoint_restore", "what": "Snapshot do estado antes de batch arriscado; restore se validate/delivery falhar", "fallback": "LLM tagga commit / stash / copia journal" },
+      { "name": "notify", "what": "Push de progresso/blocker/digest a um canal humano + recebe aprovações inbound", "fallback": "LLM escreve digest/approval-request a arquivo/sessão" },
+      { "name": "endpoint_compare", "what": "Compara superfícies web/API/agente p/ detectar drift; gaps viram follow-up items", "fallback": "LLM lista rotas em cada lado e diffa à mão" },
+      { "name": "web_verify", "what": "Dirige browser real (navigate/click/console) p/ provar mudança de UI; screenshot+trace como evidência", "fallback": "Playwright via playwright-mcp ou npx headless / pytest-playwright" },
+      { "name": "video_evidence", "what": "Renderiza MP4 demo determinístico de uma tela como evidência (e cumpre pedidos 'faça um vídeo demo')", "fallback": "hyperframes (npx hyperframes render); fallback stitch PNGs com ffmpeg" },
+      { "name": "web_research", "what": "Busca conhecimento externo atual (docs/CVE/version/SDK error), gated atrás de local-memory-miss, com proveniência", "fallback": "LLM usa web search/fetch só após miss local; grava URL fonte" },
+      { "name": "transform_guard", "what": "Verifica que uma compactação preservou todo token de code/URL/path/version (fail-closed ao original)", "fallback": "LLM extrai os dois conjuntos e compara à mão" }
+    ]
+  },
+
+  "source_adapters": {
+    "verbs": ["list_ready", "get_details", "claim", "update_status", "attach_evidence", "close"],
+    "sources": [
+      { "source": "GitHub Issues/PRs", "adapter": "gh CLI (native)", "purpose": "Fonte primária de work-items" },
+      { "source": "Jira / Asana / ClickUp / Linear / Monday / Notion", "adapter": "host connector", "purpose": "Board/project management" },
+      { "source": "Trello / Azure DevOps", "adapter": "az boards adapter (scripts/az_boards_adapter.py)", "purpose": "Azure work tracking" },
+      { "source": "agentsview sessions", "adapter": "scripts/agentsview_adapter.py", "purpose": "Recovery de sessão parada + observabilidade de custo" },
+      { "source": "Local files / CI queue", "adapter": "filesystem / CI API", "purpose": "Tracking interno de trabalho" }
+    ]
+  },
+
+  "runtimes_11": {
+    "promise": "Mesmo protocolo, mesmos gates, mesma segurança nos 11 — só a velocidade difere. orient_clamp.py funciona em todos sem wiring.",
+    "matrix": [
+      { "n": 1, "runtime": "Claude Code", "skill_load": ".claude/skills/ + .claude-plugin/", "loop_drive": "Stop hook", "hooks": "✅ full", "native_bind": "MCP (simplicio mcp register)", "adapter": "adapters/claude/README.md" },
+      { "n": 2, "runtime": "Codex", "skill_load": "AGENTS.md → SKILL.md", "loop_drive": "self-paced", "hooks": "⚠️ partial", "native_bind": "MCP / Python adapter", "adapter": "adapters/codex/README.md" },
+      { "n": 3, "runtime": "VS Code (Copilot)", "skill_load": ".github/copilot-instructions.md", "loop_drive": "self-paced (tasks)", "hooks": "⚠️ tasks", "native_bind": "MCP (VS Code MCP)", "adapter": "adapters/vscode/README.md" },
+      { "n": 4, "runtime": "Cursor", "skill_load": ".cursor-plugin/ + .claude/skills/", "loop_drive": "stop + afterAgentResponse", "hooks": "✅ full", "native_bind": "MCP / rules", "adapter": "adapters/cursor/README.md" },
+      { "n": 5, "runtime": "Antigravity", "skill_load": "rules / AGENTS.md", "loop_drive": "self-paced", "hooks": "⚠️", "native_bind": "MCP", "adapter": "adapters/antigravity/README.md" },
+      { "n": 6, "runtime": "Kiro", "skill_load": ".kiro/steering/", "loop_drive": "self-paced (specs)", "hooks": "⚠️", "native_bind": "MCP", "adapter": "adapters/kiro/README.md" },
+      { "n": 7, "runtime": "OpenCode", "skill_load": "AGENTS.md + config", "loop_drive": "self-paced", "hooks": "⚠️", "native_bind": "MCP", "adapter": "adapters/opencode/README.md" },
+      { "n": 8, "runtime": "Gemini", "skill_load": "GEMINI.md → SKILL.md", "loop_drive": "self-paced", "hooks": "⚠️", "native_bind": "MCP / native adapter", "adapter": "adapters/gemini/README.md" },
+      { "n": 9, "runtime": "Aider", "skill_load": "CONVENTIONS.md (read)", "loop_drive": "self-paced", "hooks": "❌", "native_bind": "— (LLM fallback)", "adapter": "adapters/aider/README.md" },
+      { "n": 10, "runtime": "Hermes", "skill_load": "native skill recall", "loop_drive": "native loop", "hooks": "✅ native", "native_bind": "native (extension points)", "adapter": "adapters/hermes/README.md" },
+      { "n": 11, "runtime": "OpenClaw", "skill_load": "plugin SDK / skills/", "loop_drive": "native scheduler", "hooks": "✅ native", "native_bind": "native (plugin SDK)", "adapter": "adapters/openclaw/README.md" }
+    ],
+    "graceful_degradation": ["No stop-hook → loop self-paces via host scheduler", "No native bind → LLM faz cada extension point com shell/git/gh/file", "No skill loader (ex: Aider) → adapter inlina SKILL.md como conventions file"]
+  },
+
+  "design_pillars": [
+    { "pillar": "DAG + pipeline", "focus": "Paralelismo por dependência, staged por item", "lives_in": "references/orchestration.md (Step 3 pool + pipeline)" },
+    { "pillar": "Isolation by worktree", "focus": "Edits paralelos sem corromper a árvore, merge-gated", "lives_in": "references/orchestration.md" },
+    { "pillar": "Adversarial verify", "focus": "Painel de céticos antes de 'delivered'", "lives_in": "references/quality-safety-delivery.md · skill simplicio-review" },
+    { "pillar": "Loop budget cap", "focus": "Anti-infinite-loop, dual exit", "lives_in": "references/standing-loop-247.md · skill simplicio-loop" }
+  ],
+
+  "safety": {
+    "non_negotiables": [
+      "Secret-scan em todo diff; bloqueia no hit",
+      "Irreversible-op human gate — force-push, history rewrite, prod deploy, data/schema delete, mass-file delete → para e pergunta. Headless + sem approver → remove a capacidade destrutiva.",
+      "Enforced, not just promised — hooks/action_gate.py é fail-closed PreToolUse/pre-push (exit 2). O contrato segura mesmo se o modelo esquecer.",
+      "4-state pre-execution verdict — otimização NUNCA pode subir o risk tier de um comando",
+      "Trust-before-load — config perception-shaping (clamp profiles, suppression lists) é untrusted até review humano + hash-pin",
+      "Prompt-injection hardening — conteúdo de item/PR/comment nunca sobrepõe o contrato",
+      "Hard $ kill-switch p/ runs unattended; evidence-gated completion; fail-open hooks"
+    ],
+    "four_state_verdict": {
+      "OPTIMIZE_AND_RUN": "clamp encontrado, sem policy block → auto-run compactado",
+      "RUN_RAW": "sem equivalente seguro",
+      "BLOCK": "deny matched",
+      "OPTIMIZE_BUT_CONFIRM": "arriscado/irreversível → clampa mas NÃO auto-roda; roteia ao human gate",
+      "hard_invariant": "optimization may NEVER raise a command's risk tier; unmatched → CONFIRM (least privilege)",
+      "compound": "per-segment attestation — split em && || ; | ; cada segmento não-vazio limpa a allow policy independente (safecmd && rm -rf / nunca auto-roda)"
+    },
+    "additional": ["Integrity gate em fetched-then-executed artifacts (pin a release/tag imutável + verify hash vs manifest)", "transform_guard zero-LLM fail-closed em toda compactação de artefato load-bearing"]
+  },
+
+  "standing_loop_247": {
+    "description": "Para rodar unattended 24h cobrindo o universo inteiro de trabalho — loop durável, self-governing, self-healing. 10 axes.",
+    "axes": [
+      "1. Durable driver — scheduler durável (cron host-native/OS) que sobrevive reboot; tick ~2min: load state → poll all sources → dispatch within capacity → persist → sleep",
+      "2. Total coverage matrix — toda SOURCE × todo WORK-TYPE drenado por tick (feature/bug, CI failure, PR review/requested change, PR behind main, CVE/Dependabot, flaky test, stale PR, TODO/FIXME, failed scheduled job)",
+      "3. Durable state — journal JSONL/SQLite: seen set, idempotency keys, in-flight claims, dead-letter, dry counter, lessons",
+      "4. Cost & resource governance — HARD $ kill-switch (.orchestrator/loop-budget.json), shared token bucket, re-probe CPU/RAM/disk, disk hygiene",
+      "5. Unattended safety — irreversible ops enfileiram a canal async e BLOCK; headless rule remove capacidade destrutiva; secret-scan; blast-radius cap",
+      "6. Self-healing + intelligent retry by failure class — compile (3×), test (3×), merge conflict (3×), static-analysis (2×), timeout (backoff 2×), missing dep (suspend), security gate (1× + rotate). Circuit breakers + watchdog",
+      "7. Prioritization & WIP — security/prod-broken → blockers → CI failures → high-impact/low-effort → deadlines → bugs → features → docs",
+      "8. Observability — event stream JSONL + periodic savings audit (determinístico) + snapshot-based measurement",
+      "9. Self-improvement — trajectory + simplicio-learn; reuse de precedentes; daily meta-review",
+      "10. Coordination & clean stop — multi-instance atomic claims (lease/heartbeat/TTL) + STOP signal limpo entre ticks"
+    ],
+    "kill_switch_file": ".orchestrator/loop-budget.json",
+    "kill_switch_schema": { "daily_usd_ceiling": "0 = UNSET (watcher recusa rodar unattended, fail-safe)", "per_run_token_ceiling": 0, "spent_usd_today": 0, "reset_at": "ISO-8601 (próxima meia-noite local em UTC)", "state": "running | halted" },
+    "mandatory_before_24_7": ["cost ceiling configurado", "source auth persistente", "irreversible-op human gate ON", "secret-scan gate blocking"]
+  },
+
+  "install_and_ops": {
+    "clone": "git clone https://github.com/wesleysimplicio/simplicio-loop && cd simplicio-loop",
+    "install": "bash scripts/install.sh <runtime> [--global] [--minimal]  (macOS/Linux) · pwsh scripts/install.ps1 <runtime> [-Global] (Windows)",
+    "runtimes_enum": ["claude", "codex", "vscode", "cursor", "antigravity", "kiro", "opencode", "gemini", "aider", "hermes", "openclaw"],
+    "default_is_complete": "Install completo por default: 2 operadores (simplicio-mapper + simplicio-cli, lida com PEP 668 + symlink no PATH), full Python stack + [onnx] models backend, 6 skills + hooks (Stop hook wired), capture proxy always-on com Claude+Codex+Hermes roteados e medidos. Dashboard abre 1× no fresh install, tray nunca abre sozinho.",
+    "minimal": "--minimal só p/ headless/CI: pula deps pesadas + serviços de máquina",
+    "pip_install": "pip install simplicio-loop · simplicio-loop install [--global]",
+    "github_release_install": "gh release download --repo wesleysimplicio/simplicio-loop --archive tar.gz → tar xzf → bash scripts/install.sh claude|cursor",
+    "marketplace_plugin": ["/plugin marketplace add wesleysimplicio/simplicio-loop", "/plugin install simplicio-loop@simplicio"],
+    "marketplace_note": "CHANGELOG Unreleased: instalação Claude/Cursor mudou de marketplace para GitHub release direto",
+    "update": "bash scripts/update.sh [<runtime>] — stash → ff main → reinstala → reinicia serviços → imprime stack + savings",
+    "doctor": "python3 scripts/doctor.py [--repair] — REQUIRED (python3, 2 operadores, 6 skills, loop hooks, capture proxy) vs OPTIONAL (ONNX, Rust, tray); exit 0 se todo REQUIRED healthy",
+    "only_requirement": "python3 no PATH; git + gh autenticado p/ fontes GitHub",
+    "verify_anytime": "bash scripts/simplicio-economy.sh status"
+  },
+
+  "tests_local_checks": {
+    "command": "python3 scripts/check.py",
+    "cost": "Roda local, zero CI cost. Self-runs em bare python3 (sem pytest); pip install 'simplicio-loop[dev]' adiciona pytest.",
+    "test_suite": "tests/ — selftests determinísticos dos workers + e2e do loop driver (hooks/loop_stop.py) provando: stops on evidence, ignora bare <promise>, stops on cap; + producers BLOCK (nunca fake-pass) quando toolchain ausente",
+    "claims_audit_4_checks": ["referenced scripts exist", "extension-point count consistente", "cited commands run", "_bundle ≡ source byte-idêntico"],
+    "test_files": ["tests/_selfrun.py", "tests/test_action_gate.py", "tests/test_loop_e2e.py", "tests/test_worker_selftests.py", "tests/test_worker_smoke.py"],
+    "pre_push_hook": "printf '#!/bin/sh\\npython3 scripts/check.py\\n' > .git/hooks/pre-push && chmod +x .git/hooks/pre-push",
+    "ci_workflow": ".github/workflows/web-verify.yml"
+  },
+
+  "providers": {
+    "total": 144,
+    "interceptable": 141,
+    "interceptable_pct": 98,
+    "active": 5,
+    "source": "app/providers.json (gerado de hermes:models_dev_cache + hermes:provider_models_cache)",
+    "tier_example": "openai-compat",
+    "examples": ["302ai", "abacus", "abliteration-ai", "aihubmix", "OpenAI", "Anthropic", "DeepSeek", "XAI/grok", "Mistral", "Google/gemini", "LLaMA"]
+  },
+
+  "pricing": {
+    "status": "proposal (draft) — nada é cobrado hoje; o core fica MIT e livre",
+    "model": "Open-core + usage-based hosted tier",
+    "free_forever": ["orchestrator loop + 6 skills + hooks", "token economy local (orient_clamp.py, capture engine, savings_ledger on disk, dashboard 127.0.0.1:9090)", "video_evidence local render (hyperframes local)", "self-hosting nos 11 runtimes"],
+    "tiers": [
+      { "tier": "Community", "price": "Free, MIT", "who": "indivíduos, OSS", "gets": "Engine completo self-hosted, todas skills/hooks, dashboard local, video_evidence local" },
+      { "tier": "Pro (hosted)", "price": "~$29/dev/mo", "who": "small teams", "gets": "Watcher 24/7 gerenciado, dashboard hospedado com histórico+reports, operadores como serviço, priority model-routing" },
+      { "tier": "Team / Cloud", "price": "usage-based", "who": "orgs", "gets": "Multi-repo fleets, SSO, audit log, render video_evidence distribuído (Lambda), per-seat + per-run metering, SLA" },
+      { "tier": "Enterprise", "price": "custom", "who": "regulados", "gets": "Control plane self-hosted, on-prem operators, licença comercial/indenidade, support" }
+    ],
+    "billing_meters": ["Cost kill-switch (.orchestrator/loop-budget.json)", "Savings ledger (savings_harness.py / proxy_savings.json)", "Capture proxy (engine/simplicio_engine.py)", "Run outcomes (trajectory)"],
+    "aggregator": "scripts/billing_aggregator.py — collect/meter/invoice/export/rates/selftest (11/11). Determinístico, model-free, privacy (só counts saem), fail-safe (prepaid guard reusa o kill-switch), auditável.",
+    "suggested_rates": { "managed_run": "$0.50–$2.00 por item delivered+merged", "tokens_passthrough": "cost + 15% por 1M upstream tokens", "video_render": "$0.10 por render-minute (Lambda)", "operator_time": "$0.02 por compute-minute" }
+  },
+
+  "directory_structure": {
+    "root_docs": ["README.md", "README*.md (15 idiomas em READMEs/)", "CLAUDE.md", "AGENTS.md", "GEMINI.md", "INSTALL.md", "PYPI.md", "PRICING.md", "CHANGELOG.md (43 versões)", "LICENSE (MIT)", "MANIFEST.in", "pyproject.toml"],
+    "skills": ".claude/skills/{simplicio-tasks,simplicio-loop,simplicio-orient,simplicio-review,simplicio-compress,simplicio-learn}/SKILL.md (+ simplicio-tasks/references/*.md)",
+    "hooks": "hooks/ (8 hooks Python + hooks.json + hooks.claude.json + README.md)",
+    "engine": "engine/ (25 módulos Python + README.md)",
+    "rust": "rust/ (4 crates: simplicio-core, simplicio-py, simplicio-proxy, simplicio-parity)",
+    "scripts": "scripts/ (20 workers: install, doctor, check, claims_audit, loop_journal, video_evidence, web_verify, savings_harness, billing_aggregator, adapters, ...)",
+    "adapters": "adapters/ (MATRIX.md + 11 READMEs por runtime)",
+    "app": "app/ (providers.json — 144 providers · simplicio_tray.py)",
+    "bin": "bin/simplicio (entry da engine)",
+    "pip_bundle": "simplicio_loop/ (__init__.py, cli.py, _bundle/{hooks,skills} byte-idênticos à source)",
+    "plugin_manifests": [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json", ".cursor-plugin/", ".codex/config.toml + hooks.json"],
+    "runtime_state_dirs": [".orchestrator/{loop,tee,learn,STOP,loop-budget.json,patterns.jsonl,orient.toml}", ".simplicio/{*.json survey artifacts}", "~/.simplicio/{proxy_savings.json,memory.json,cache,logs,copilot_oauth.json}"],
+    "assets": ["assets/simplicio-loop-hero.jpg (213KB)", "assets/simplicio-loop-logo.png (504KB)", "assets/simplicio-loop-overview.png (1.9MB)", "assets/tray-icon.png"],
+    "ci": ".github/workflows/web-verify.yml"
+  },
+
+  "version_history": {
+    "total_releases": 43,
+    "current": "3.9.3 (2026-06-24)",
+    "unreleased": "Discord badge; install Claude/Cursor via GitHub release (não marketplace); reconcile extension-point count 44→48; removida seção Pricing do README e 14 traduções",
+    "milestones": [
+      { "version": "3.9.3", "summary": "video_evidence renderiza no hyperframes 0.7.x (schema real #root[data-composition-id] + .clip + GSAP)" },
+      { "version": "3.9.2", "summary": "Release sync — lockstep das 3 fontes de versão" },
+      { "version": "3.9.1", "summary": "simplicio-loop typeável no PATH (symlink em ~/.local/bin) p/ 'simplicio-loop dashboard'" },
+      { "version": "3.9.0", "summary": "Token Monitor rebrand + simplicio-loop dashboard" },
+      { "version": "3.0.0", "summary": "Major — marco da linha 3.x" },
+      { "version": "2.0.0", "summary": "Major — marco da linha 2.x" },
+      { "version": "1.3.0–1.8.1", "summary": "Linha 1.x (2026-06-23): base do super-plugin" }
+    ],
+    "note": "Todas as 43 versões datam de 2026-06-23/24 — desenvolvimento intensivo em 2 dias."
+  },
+
+  "visual_identity_for_image_and_video": {
+    "brand_palette": {
+      "purple_skills": "#7C3AED",
+      "green_accent": "#00E08A",
+      "blue_runtimes": "#2563EB",
+      "discord": "#5865F2",
+      "savings_green": "green",
+      "background_dark_suggested": "#0B0E14",
+      "text_light_suggested": "#E6EDF3"
+    },
+    "logo_assets": ["assets/simplicio-loop-logo.png", "assets/simplicio-loop-hero.jpg", "assets/simplicio-loop-overview.png", "assets/tray-icon.png"],
+    "central_motif": "Um loop infinito (♾️) fechado: discover → understand → decide → act → verify → correct → record → repeat. A seta de volta (re-feed) é o elemento-assinatura.",
+    "iconography": { "simplicio-tasks": "🔁", "simplicio-loop": "♾️", "simplicio-orient": "🧱", "simplicio-review": "🔥", "simplicio-compress": "🗜️", "simplicio-learn": "🎓", "video": "🎬", "safety": "🔒", "tokens": "📊/💰" },
+    "key_visuals_for_infographic": [
+      "Hub central 'simplicio-tasks' com 5 satélites orbitando (orient, loop, review, compress, learn)",
+      "Pipeline horizontal de 11 camadas (demand sources → 24/7 watcher) com a seta de re-feed voltando ao início",
+      "Tabela 11 runtimes × 3 capacidades (skill load / loop drive / native bind) com semáforos ✅⚠️❌",
+      "Gauge de economia 'até 96% menos tokens' + catálogo de clamp",
+      "Diagrama do evidence-gated loop: <promise> só sai com prova (teste/PR/re-query) + cap + budget + STOP",
+      "Stack de operadores: AI DECIDE → simplicio-mapper (survey) → simplicio-dev-cli (operate 6-layer) → evidence",
+      "Selo de segurança fail-closed (action_gate bloqueia force-push/secret) vs fail-open (resto)"
+    ],
+    "suggested_video_storyboard": [
+      { "scene": 1, "title": "Hook", "beats": ["'Não é um chatbot. É um trabalhador.'", "Mostra '/simplicio-tasks termine as issues abertas' sendo digitado", "Loop ♾️ acende"], "duration_s": 8 },
+      { "scene": 2, "title": "O problema", "beats": ["Fila de issues/CI/Jira acumulando", "Custo de tokens explodindo num gráfico vermelho"], "duration_s": 10 },
+      { "scene": 3, "title": "Pre-flight", "beats": ["kill-switch ✓ ($5/day)", "auth ✓", "watcher armado"], "duration_s": 8 },
+      { "scene": 4, "title": "Discover + DAG", "beats": ["50 issues descobertas", "dedup", "dependency DAG montado", "autoscale fleet = 14"], "duration_s": 12 },
+      { "scene": 5, "title": "O ciclo por item", "beats": ["read body+ACs → orient code → plan → deterministic_edit → run → verify → PR", "destaque: 'WORKS, not just compiles'"], "duration_s": 15 },
+      { "scene": 6, "title": "Quality + Safety gates", "beats": ["AC gate", "adversarial review (thermos, 3 rubricas)", "action_gate fail-closed bloqueia force-push/segredo"], "duration_s": 12 },
+      { "scene": 7, "title": "Token economy", "beats": ["signatures 870→65 linhas (93%)", "clamp + tee cache", "dashboard 127.0.0.1:9090 ao vivo", "até 96% menos tokens"], "duration_s": 12 },
+      { "scene": 8, "title": "Evidence-gated loop", "beats": ["<promise> SÓ com prova", "stall detector troca estratégia", "nunca um falso 'done'"], "duration_s": 10 },
+      { "scene": 9, "title": "Video evidence", "beats": ["'faça um vídeo demonstrativo da tela X'", "web_verify captura screenshots → hyperframes → MP4 determinístico anexado ao PR"], "duration_s": 10 },
+      { "scene": 10, "title": "11 runtimes, um protocolo", "beats": ["Logos: Claude, Codex, Copilot, Cursor, Gemini, Antigravity, Kiro, OpenCode, Aider, Hermes, OpenClaw", "mesma cor, só a velocidade difere"], "duration_s": 10 },
+      { "scene": 11, "title": "24/7", "beats": ["merge · close · idle · acorda com novo trabalho", "loop infinito girando"], "duration_s": 8 },
+      { "scene": 12, "title": "CTA", "beats": ["pip install simplicio-loop", "bash scripts/install.sh claude", "Discord badge", "GitHub stars"], "duration_s": 8 }
+    ],
+    "narration_pull_quotes": [
+      "discover → understand → decide → act → verify → correct → record → repeat",
+      "A IA decide; os operadores agem.",
+      "Nunca um falso 'done' — saída só com evidência concreta.",
+      "Mesmo protocolo, mesmos gates, mesma segurança nos 11 runtimes — só a velocidade difere.",
+      "O token mais barato é o que não se gasta.",
+      "Enforced, not just described — action_gate é fail-closed."
+    ]
+  },
+
+  "doc_drift_notes": [
+    "README badge diz 'skills-11' (são 6 skills + 5 accelerators = 11 itens na tabela 'skills & accelerators'); o pacote tem 6 SKILL.md reais.",
+    "Bloco 'Official capability record (v3.4.0)' cita versão antiga; canônico é 3.9.3.",
+    "Extension points: 48 é o número reconciliado; alguns refs antigos / o cabeçalho da SKILL.md ainda mencionam 44 em trechos.",
+    "action_gate selftest: hooks/README.md diz 14/14; README.md cita 15/15 num ponto.",
+    "PRICING.md menciona '44 extension points' (pré-reconciliação)."
+  ]
+}

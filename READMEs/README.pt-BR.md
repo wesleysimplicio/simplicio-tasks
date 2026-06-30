@@ -86,7 +86,7 @@ para sua seção detalhada e seu worker.
 | Capacidade | O que faz | Prova / worker | Detalhes |
 |---|---|---|---|
 | 🎬 **Evidência em vídeo** (`video_evidence`) | Grava a **sessão real do navegador** como prova em movimento de que uma alteração de UI funciona (Playwright, padrão); renderiza um **MP4 legendado determinístico** com [hyperframes](https://github.com/heygen-com/hyperframes) para um pedido explícito de vídeo explicativo (`/simplicio-tasks make a video of screen X`) | `scripts/video_evidence.py` · BLOCKED (nunca fake-pass) sem a toolchain | [§ Evidência em vídeo](#-evidência-em-vídeo--playwright-por-padrão-hyperframes-sob-demanda) |
-| 🧠 **Memória de tentativas + detector de stall** | Um run-journal durável (`.orchestrator/loop/journal.jsonl`) + um detector de stall para que o loop **mude de estratégia em vez de oscilar**; triagem incremental (`since`) lê apenas o delta a cada turno | `scripts/loop_journal.py` · `selftest` 9/9 | [§ Anti-oscilação](#-memória-de-tentativas--detector-de-stall-anti-oscilação) |
+| 🧠 **Memória de tentativas + detector de stall** | Um run-journal durável (`.orchestrator/loop/journal.jsonl`) + um detector de stall para que o loop **mude de estratégia em vez de oscilar**; triagem incremental (`since`) lê apenas o delta a cada turno, e lineage opcional explicita retries e validação | `scripts/loop_journal.py` · `selftest` 13/13 | [§ Anti-oscilação](#-memória-de-tentativas--detector-de-stall-anti-oscilação) |
 | 🔒 **Gate de segurança fail-closed** (`action_gate`) | Um hook `PreToolUse`/git-pre-push que **bloqueia mecanicamente** force-push, reescrita de histórico, delete em massa, DDL destrutivo, teardown de infra e commits/pushes carregados de segredos — Step 5 tornado executável, não prosa | `hooks/action_gate.py` · `selftest` 15/15 | [§ Segurança](#-segurança-inegociável) |
 | 🔬 **Verificação local** | Uma suíte de testes (selftests dos workers + um **e2e do driver do loop** provando saída com gate de evidência) + uma **claims-audit** (scripts referenciados existem · contagens consistentes · `_bundle ≡ source`) — tudo local, **sem CI pago** | `scripts/check.py` · `scripts/claims_audit.py` · `tests/` | [§ Testes & checagens locais](#-testes--checagens-locais-sem-ci-pago) |
 | ✅ **Economia honesta** | A linha de economia agora é **com gate de evidência, não obrigatória** — um número é exibido apenas com um recibo medido (clamp/signatures/cache/`deterministic_edit`/ledger); nunca fabricado | contrato de economia de tokens | [§ Economia de tokens](#-economia-de-tokens) |
@@ -276,7 +276,8 @@ prefill próximo de zero.
 Um loop de re-alimentação que não lembra de nada oscila — tenta X, falha, tenta X de novo — até o
 limite queimar. O simplicio-loop mantém um **run-journal durável**
 (`.orchestrator/loop/journal.jsonl`, append-only:
-`iteration · action · hypothesis · gate · error-fingerprint`) e um **detector de stall**
+`iteration · action · hypothesis · gate · error-fingerprint`, com lineage opcional como
+`execution_state · stage_id · validator · decision · retry_count`) e um **detector de stall**
 ([`scripts/loop_journal.py`](../scripts/loop_journal.py), determinístico + sem modelo):
 
 - **Fingerprint de erro** — a saída do gate que falhou é reduzida a um hash estável com números de
@@ -289,10 +290,15 @@ limite queimar. O simplicio-loop mantém um **run-journal durável**
   evitar, depois **muda de estratégia** ou **escala para o gate humano** com o fingerprint.
 - `loop_journal.py resume` é lido no topo de cada turno, então um processo novo continua sem
   re-derivar tentativas anteriores (resume real) e nunca repete um beco sem saída conhecido.
+- Quando o loop estiver em extração, validação ou retries governados, `record` também pode gravar
+  `--execution-state`, `--stage-id`, `--source-artifact`, `--chunk-id`, `--validator`,
+  `--decision`, `--retry-count`, `--blocked-reason` e `--next-action`, para que o turno seguinte
+  saiba não só *o que* falhou, mas *em que etapa do fluxo* falhou.
 
 ```bash
 loop_journal.py resume                       # what was tried + dead-ends to avoid
-loop_journal.py record --iteration N --action "…" --gate fail --gate-output test.log
+loop_journal.py record --iteration N --action "…" --gate fail --gate-output test.log \
+  --execution-state planned --stage-id validate --validator pytest --decision retry
 loop_journal.py stall --k 3 --exit-code      # PROGRESS → re-feed · STALLED → switch/escalate
 ```
 

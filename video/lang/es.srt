@@ -1,0 +1,47 @@
+1
+00:00:00,000 --> 00:00:07,900
+Esto no es un chatbot. Es un trabajador. Apuntas simplicio-loop a un conjunto de tareas y ejecuta todo el trabajo por su cuenta.
+
+2
+00:00:08,000 --> 00:00:17,900
+Issues, fallos de CI, tableros de Jira: colas que nunca se vacían. Y cada pasada quema más tokens. ¿Y si un solo comando las vaciara todas, y barato?
+
+3
+00:00:18,000 --> 00:00:25,900
+Primero, el pre-vuelo. Un kill-switch de costo, autenticación de la fuente y un watcher veinticuatro-siete: todo en verde antes de una sola línea de código.
+
+4
+00:00:26,000 --> 00:00:37,900
+Descubre cincuenta issues, las deduplica, construye un grafo de dependencias y autoescala una flota de catorce agentes a tu máquina.
+
+5
+00:00:38,000 --> 00:00:52,900
+Cada ítem corre el ciclo completo: lee el cuerpo y los criterios de aceptación, orienta el código, planifica, aplica el cambio de forma mecánica y lo ejecuta. Porque tiene que funcionar, no solo compilar.
+
+6
+00:00:53,000 --> 00:01:04,900
+Se disparan las puertas de calidad: la verificación de criterios y tres revisores adversariales refutando en paralelo. Y una puerta de seguridad fail-closed bloquea el force-push y los secretos antes de que se ejecuten.
+
+7
+00:01:05,000 --> 00:01:16,900
+La economía de tokens es implacable. Un archivo de ochocientas setenta líneas se reduce a sesenta y cinco firmas: noventa y tres por ciento ahorrado. La salida se recorta y se cachea. Mira el panel en vivo: hasta noventa y seis por ciento menos tokens.
+
+8
+00:01:17,000 --> 00:01:26,900
+El bucle nunca miente. La promesa de hecho solo se dispara con prueba real: un test que pasa, un PR fusionado. Un detector de estancamiento cambia de estrategia en vez de girar en vano. Nunca un falso listo.
+
+9
+00:01:27,000 --> 00:01:36,900
+Pide un video demostrativo y lo crea. web_verify captura las pantallas, hyperframes renderiza un MP4 determinista, adjunto directamente al pull request como prueba.
+
+10
+00:01:37,000 --> 00:01:46,900
+Once runtimes, un solo protocolo: Claude, Codex, Copilot, Cursor, Gemini, Hermes y más. Las mismas puertas, la misma seguridad. Solo cambia la velocidad.
+
+11
+00:01:47,000 --> 00:01:54,900
+Fusiona, cierra y queda en reposo, y despierta en cuanto llega trabajo nuevo. Veinticuatro siete.
+
+12
+00:01:55,000 --> 00:02:02,900
+pip install simplicio-loop. Un comando lo instala todo. M-I-T, abierto y esperándote en GitHub. Únete.

@@ -235,6 +235,10 @@ Never mark done without green gates + evidence; a failure is NOT a blocker — i
   (`loop_journal.py stall`). K consecutive failures with the SAME error fingerprint ⇒ do NOT keep
   re-trying the same approach: switch strategy, or escalate via the human gate (Step 5) with the
   fingerprint + dead-ends. Start each turn with `loop_journal.py resume` to avoid known dead-ends.
+  When the lane itself has stage lineage that matters, also stamp `--execution-state`,
+  `--stage-id`, `--source-artifact`, `--chunk-id`, `--validator`, `--decision`,
+  `--retry-count`, `--blocked-reason`, and `--next-action` so the next turn resumes with the
+  exact point of failure, not just the generic error hash.
   Delegate to `simplicio-loop` when loaded (§ Run-journal + stall detector).
 - **AC anchor + drift guard (anti-deviation).** Every turn, BEFORE acting, re-read the frozen
   anchor and verify you are still on the SAME task: `python3 scripts/task_anchor.py check --goal

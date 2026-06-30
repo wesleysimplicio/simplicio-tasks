@@ -21,6 +21,8 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(REPO, "hooks", "loop_stop.py")
+JOURNAL = os.path.join(".orchestrator", "loop", "journal.jsonl")
+HANDOFF = os.path.join(".orchestrator", "loop", "HANDOFF.md")
 
 SCRATCHPAD = """---
 iteration: {iteration}
@@ -57,6 +59,11 @@ def _iteration(root):
             if line.startswith("iteration:"):
                 return int(line.split(":", 1)[1])
     return None
+
+
+def _append_attempt(root, record):
+    with open(os.path.join(root, JOURNAL), "a", encoding="utf-8") as f:
+        f.write(json.dumps(record) + "\n")
 
 
 def test_promise_with_evidence_stops(tmp_path):
@@ -129,6 +136,37 @@ def test_iteration_cap_stops(tmp_path):
     r = _tick(root, "still going, no promise here")
     assert r.stdout.strip() == "", "cap reached must STOP, not re-feed:\n%s" % r.stdout
     assert not os.path.exists(_scratchpad(root)), "cap stop should clean up state"
+
+
+def test_iteration_cap_handoff_carries_attempt_lineage(tmp_path):
+    root = str(tmp_path)
+    _arm(root, iteration=5, max_iter=5)
+    _append_attempt(root, {
+        "iteration": 4,
+        "action": "split provider adapter",
+        "gate": "blocked",
+        "fingerprint": "deadbeef0001",
+        "note": "needs a fixture",
+        "execution_state": "authorized",
+        "stage_id": "validate",
+        "decision": "retry",
+        "validator": "pytest",
+        "retry_count": 2,
+        "chunk_id": "audit:2",
+        "source_artifact": "audit.md",
+        "blocked_reason": "fixture missing",
+        "next_action": "add fixture",
+    })
+    r = _tick(root, "still going, no promise here")
+    assert r.stdout.strip() == "", "cap reached must STOP, not re-feed:\n%s" % r.stdout
+    handoff = os.path.join(root, HANDOFF)
+    assert os.path.exists(handoff), "cap stop should write HANDOFF.md"
+    body = open(handoff, encoding="utf-8").read()
+    assert "state=authorized" in body
+    assert "stage=validate" in body
+    assert "validator=pytest" in body
+    assert "next=add fixture" in body
+    assert "blocked=fixture missing" in body
 
 
 def test_stop_signal_halts(tmp_path):

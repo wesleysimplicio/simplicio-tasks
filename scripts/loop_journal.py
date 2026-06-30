@@ -12,13 +12,18 @@ reproducible from the on-disk journal (same discipline as `savings_harness`/`bil
 
 State: `.orchestrator/loop/journal.jsonl` — one append-only record per attempt:
     {"iteration", "action", "hypothesis", "gate": "pass|fail|blocked",
-     "fingerprint": "<stable hash of the failure signature>", "note", "ts"}
+     "fingerprint": "<stable hash of the failure signature>", "note", "ts",
+     "execution_state"?, "stage_id"?, "source_artifact"?, "chunk_id"?,
+     "validator"?, "decision"?, "retry_count"?, "blocked_reason"?, "next_action"?}
 
 Verbs:
   record      Append one attempt. Pass --gate pass|fail|blocked and (on fail) the gate output via
               --gate-output FILE or stdin; the failure FINGERPRINT is computed deterministically
               (line-numbers / paths / hex / timestamps normalized away) so the SAME failure hashes
-              the SAME across turns.
+              the SAME across turns. Optional lineage flags (`--execution-state`, `--stage-id`,
+              `--source-artifact`, `--chunk-id`, `--validator`, `--decision`, `--retry-count`,
+              `--blocked-reason`, `--next-action`) make extraction / validation / retry flow
+              explicit without losing append-only history.
   fingerprint Print the stable fingerprint of a failure text (FILE or stdin). Standalone helper.
   stall       Read the journal → verdict PROGRESS | STALLED. STALLED when the last K consecutive
               attempts all failed with the SAME fingerprint (default K=3). Prints the recommended
@@ -34,7 +39,9 @@ Verbs:
 
 Usage:
     python3 scripts/loop_journal.py record --iteration 3 --action "add retry to fetch" \\
-        --hypothesis "timeout is transient" --gate fail --gate-output test.log
+        --hypothesis "timeout is transient" --gate fail --gate-output test.log \\
+        --execution-state planned --stage-id validate --validator pytest \\
+        --decision retry --retry-count 1 --next-action "split provider adapter"
     python3 scripts/loop_journal.py stall  [--k 3] [--exit-code]
     python3 scripts/loop_journal.py resume
     python3 scripts/loop_journal.py status [--n 10]
@@ -58,6 +65,15 @@ REPO = os.path.dirname(HERE)
 LOOP_DIR = os.path.join(REPO, ".orchestrator", "loop")
 JOURNAL = os.path.join(LOOP_DIR, "journal.jsonl")
 DEFAULT_K = 3
+EXECUTION_STATES = (
+    "proposed",
+    "planned",
+    "dry_run",
+    "authorized",
+    "executed",
+    "verified",
+    "rejected",
+)
 
 # Lines that carry the actual failure signal — we fingerprint THESE, not the whole log.
 SIGNAL_RE = re.compile(
@@ -141,12 +157,33 @@ def _load():
     return rows
 
 
-def cmd_record(opts):
-    os.makedirs(LOOP_DIR, exist_ok=True)
+def _clean(value):
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _optional_int(value):
+    text = _clean(value)
+    if not text:
+        return None
+    try:
+        return max(0, int(text))
+    except ValueError:
+        return None
+
+
+def _maybe_put(rec, key, value):
+    text = _clean(value)
+    if text:
+        rec[key] = text
+
+
+def _build_record(opts, gate_output_text, commit, now):
     gate = opts.get("gate", "fail")
     fp = ""
     if gate != "pass":
-        fp = fingerprint(_read_source(opts.get("gate-output")))
+        fp = fingerprint(gate_output_text)
     rec = {
         "iteration": int(opts.get("iteration", 0)),
         "action": opts.get("action", ""),
@@ -154,13 +191,63 @@ def cmd_record(opts):
         "gate": gate,
         "fingerprint": fp,
         "note": opts.get("note", ""),
-        "commit": opts.get("_commit") or _git_head(),  # for incremental triage (`since`)
-        "ts": opts.get("_now") or _now(),
+        "commit": commit,
+        "ts": now,
     }
+    _maybe_put(rec, "source_artifact", opts.get("source-artifact"))
+    _maybe_put(rec, "chunk_id", opts.get("chunk-id"))
+    _maybe_put(rec, "stage_id", opts.get("stage-id"))
+    _maybe_put(rec, "validator", opts.get("validator"))
+    _maybe_put(rec, "decision", opts.get("decision"))
+    _maybe_put(rec, "blocked_reason", opts.get("blocked-reason"))
+    _maybe_put(rec, "next_action", opts.get("next-action"))
+    execution_state = _clean(opts.get("execution-state"))
+    if execution_state:
+        rec["execution_state"] = execution_state
+    retry_count = _optional_int(opts.get("retry-count"))
+    if retry_count is not None:
+        rec["retry_count"] = retry_count
+    return rec
+
+
+def _lineage_summary(rec):
+    bits = []
+    if rec.get("execution_state"):
+        bits.append("state=%s" % rec["execution_state"])
+    if rec.get("stage_id"):
+        bits.append("stage=%s" % rec["stage_id"])
+    if rec.get("decision"):
+        bits.append("decision=%s" % rec["decision"])
+    if rec.get("validator"):
+        bits.append("validator=%s" % rec["validator"])
+    if rec.get("retry_count") is not None:
+        bits.append("retry=%s" % rec["retry_count"])
+    if rec.get("chunk_id"):
+        bits.append("chunk=%s" % rec["chunk_id"])
+    if rec.get("source_artifact"):
+        bits.append("source=%s" % rec["source_artifact"])
+    return " | ".join(bits)
+
+
+def cmd_record(opts):
+    os.makedirs(LOOP_DIR, exist_ok=True)
+    rec = _build_record(
+        opts,
+        _read_source(opts.get("gate-output")),
+        opts.get("_commit") or _git_head(),  # for incremental triage (`since`)
+        opts.get("_now") or _now(),
+    )
     with open(JOURNAL, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     log("recorded iter=%d gate=%s fp=%s action=%r" % (
         rec["iteration"], rec["gate"], rec["fingerprint"] or "-", rec["action"][:50]))
+    lineage = _lineage_summary(rec)
+    if lineage:
+        log("lineage: %s" % lineage)
+    if rec.get("blocked_reason"):
+        log("blocked: %s" % rec["blocked_reason"][:96])
+    if rec.get("next_action"):
+        log("next: %s" % rec["next_action"][:96])
     print("recorded")
 
 
@@ -242,6 +329,13 @@ def cmd_resume(opts):
         len(rows), rows[-1].get("gate"), a["stall_count"], opts.get("k", DEFAULT_K),
         a["fingerprint"] or "-"))
     log("verdict: %s — recommend: %s" % (a["verdict"], a["recommend"]))
+    lineage = _lineage_summary(rows[-1])
+    if lineage:
+        log("last lineage: %s" % lineage)
+    if rows[-1].get("blocked_reason"):
+        log("last blocked reason: %s" % rows[-1]["blocked_reason"][:120])
+    if rows[-1].get("next_action"):
+        log("last next action: %s" % rows[-1]["next_action"][:120])
     # distinct actions tried + their last outcome (anti-oscillation memory)
     last_outcome = {}
     for r in rows:
@@ -264,9 +358,17 @@ def cmd_status(opts):
         return
     print("journal: %d records (last %d):" % (len(rows), min(n, len(rows))))
     for r in rows[-n:]:
-        log("iter=%-3s %-7s fp=%-12s %s" % (
+        suffix = _lineage_summary(r)
+        if r.get("next_action"):
+            suffix = (suffix + " | " if suffix else "") + "next=%s" % r["next_action"]
+        if r.get("blocked_reason"):
+            suffix = (suffix + " | " if suffix else "") + "blocked=%s" % r["blocked_reason"]
+        msg = "iter=%-3s %-7s fp=%-12s %s" % (
             r.get("iteration"), r.get("gate"), r.get("fingerprint") or "-",
-            (r.get("action") or "")[:56]))
+            (r.get("action") or "")[:56])
+        if suffix:
+            msg += " [" + suffix[:160] + "]"
+        log(msg)
 
 
 def cmd_since(opts):
@@ -315,6 +417,7 @@ def cmd_selftest(_opts):
     c = fingerprint("AssertionError: expected 3 got 4 in test_math")
     chk("fingerprint.distinct", c != a, True)
     chk("fingerprint.empty", fingerprint(""), "")
+    chk("execution_state.enum", "verified" in EXECUTION_STATES, True)
 
     base = {"hypothesis": "", "note": "", "ts": "t"}
     # 3 identical failures -> STALLED at k=3
@@ -333,6 +436,28 @@ def cmd_selftest(_opts):
     chk("progress.moving", analyze(rows3, 3)["verdict"], "PROGRESS")
     # below threshold -> PROGRESS but streak counted
     chk("progress.under_k", analyze(rows[:2], 3)["stall_count"], 2)
+    rec = _build_record(
+        {
+            "iteration": "4",
+            "action": "split provider adapter",
+            "gate": "blocked",
+            "execution-state": "authorized",
+            "stage-id": "validate",
+            "source-artifact": "audit.md",
+            "chunk-id": "audit:2",
+            "validator": "pytest",
+            "decision": "retry",
+            "retry-count": "2",
+            "blocked-reason": "missing fixture",
+            "next-action": "add fixture",
+        },
+        "FAILED fixture missing at test_runtime.py:42",
+        "abc123",
+        "t2",
+    )
+    chk("record.metadata.stage", rec.get("stage_id"), "validate")
+    chk("record.metadata.retry", rec.get("retry_count"), 2)
+    chk("record.metadata.summary", "state=authorized" in _lineage_summary(rec), True)
 
     ok = all(checks)
     print("selftest: %s (%d/%d)" % ("PASS" if ok else "FAIL", sum(checks), len(checks)))

@@ -1,0 +1,47 @@
+1
+00:00:00,000 --> 00:00:07,900
+Isto não é um chatbot. É um trabalhador. Você aponta o simplicio-loop para um conjunto de tarefas e ele executa o trabalho inteiro sozinho.
+
+2
+00:00:08,000 --> 00:00:17,900
+Issues, falhas de CI, boards do Jira: filas que nunca esvaziam. E cada passada queima mais tokens. E se um comando só drenasse tudo isso, e barato?
+
+3
+00:00:18,000 --> 00:00:25,900
+Primeiro, o pre-flight. Um kill-switch de custo, autenticação da fonte e um watcher vinte e quatro por sete: tudo verde antes de uma única linha de código.
+
+4
+00:00:26,000 --> 00:00:37,900
+Ele descobre cinquenta issues, deduplica, monta um grafo de dependências e escala automaticamente uma frota de catorze agentes para a sua máquina.
+
+5
+00:00:38,000 --> 00:00:52,900
+Cada item roda o ciclo completo: lê o corpo e os critérios de aceite, orienta o código, planeja, aplica a mudança de forma mecânica e roda de verdade. Porque tem que funcionar — não só compilar.
+
+6
+00:00:53,000 --> 00:01:04,900
+Os portões de qualidade disparam: a checagem de critérios e três revisores adversariais refutando em paralelo. E um portão de segurança fail-closed bloqueia force-push e segredos antes mesmo de rodarem.
+
+7
+00:01:05,000 --> 00:01:16,900
+A economia de tokens é implacável. Um arquivo de oitocentas e setenta linhas colapsa para sessenta e cinco assinaturas: noventa e três por cento economizados. A saída é clampada e cacheada. Veja o painel ao vivo: até noventa e seis por cento menos tokens.
+
+8
+00:01:17,000 --> 00:01:26,900
+O loop nunca mente. A promessa de pronto só dispara com prova real: um teste passando, um PR mergeado. Um detector de stall troca de estratégia em vez de rodar em falso. Nunca um falso done.
+
+9
+00:01:27,000 --> 00:01:36,900
+Peça um vídeo demonstrativo e ele cria. O web_verify captura as telas, o hyperframes renderiza um MP4 determinístico, anexado direto ao pull request como prova.
+
+10
+00:01:37,000 --> 00:01:46,900
+Onze runtimes, um protocolo: Claude, Codex, Copilot, Cursor, Gemini, Hermes e mais. Os mesmos portões, a mesma segurança. Só a velocidade muda.
+
+11
+00:01:47,000 --> 00:01:54,900
+Ele mergeia, fecha e fica ocioso — e acorda assim que chega trabalho novo. Vinte e quatro horas por dia, sete dias por semana.
+
+12
+00:01:55,000 --> 00:02:02,900
+pip install simplicio-loop. Um comando instala tudo. MIT, aberto e esperando você no GitHub. Junte-se a nós.

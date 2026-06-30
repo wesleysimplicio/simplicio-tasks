@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>simplicio-loop —— 通用的循环式 AI 编排器</title>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:1920px; height:1080px; overflow:hidden; background:#0B0E14 (near-black) com grade sutil + glow radial;
+      font-family:Arial,Helvetica,sans-serif; color:#E6EDF3; }
+    body::before { content:""; position:absolute; inset:0;
+      background:
+        radial-gradient(1200px 700px at 50% 30%, rgba(124,58,237,.18), transparent 60%),
+        radial-gradient(900px 600px at 80% 90%, rgba(0,224,138,.12), transparent 60%);
+      background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size:100% 100%, 64px 64px, 64px 64px; }
+    .clip { position:absolute; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:26px; padding:0 140px; opacity:0; }
+    .glow { position:absolute; width:760px; height:760px; border-radius:50%;
+      background:radial-gradient(circle, color-mix(in srgb, var(--c) 38%, transparent), transparent 62%);
+      filter:blur(18px); z-index:0; }
+    .glyph { position:relative; z-index:1; font-size:150px; font-weight:800; line-height:1;
+      color:var(--c); text-shadow:0 0 50px color-mix(in srgb, var(--c) 60%, transparent); }
+    .num { position:relative; z-index:1; font-family:"Courier New",monospace;
+      font-size:20px; letter-spacing:4px; opacity:.55; }
+    .cap { position:relative; z-index:1; font-size:58px; font-weight:700; line-height:1.12;
+      text-align:center; max-width:1400px; }
+    .chip { position:relative; z-index:1; font-family:"Courier New",monospace; font-size:24px;
+      line-height:1.5; text-align:center; max-width:1500px; color:#00E08A; opacity:0;
+      background:rgba(0,224,138,.07); border:1px solid rgba(0,224,138,.22);
+      border-radius:14px; padding:14px 26px; }
+    .scene-problem .chip { color:#FF8A8A; background:rgba(255,92,92,.08);
+      border-color:rgba(255,92,92,.25); }
+    .scene-runtimes .chip, .scene-discover_dag .chip, .scene-video_evidence .chip {
+      color:#7FB2FF; background:rgba(37,99,235,.10); border-color:rgba(37,99,235,.28); }
+    .brand { position:absolute; left:46px; bottom:34px; z-index:2;
+      font-family:"Courier New",monospace; font-size:18px; opacity:.5; }
+    .loopmark { position:absolute; right:48px; bottom:30px; z-index:2; font-size:40px;
+      color:#7C3AED; opacity:.8; }
+    .logo { position:absolute; left:44px; top:30px; z-index:2; height:46px; opacity:.92; }
+  </style>
+</head>
+<body>
+  <div id="root" data-composition-id="main" data-start="0" data-duration="123"
+       data-width="1920" data-height="1080">
+      <div class="clip scene-hook" id="s1" data-start="0" data-duration="8" data-track-index="1">
+        <div class="glow" style="--c:#7C3AED"></div>
+        <div class="glyph" id="g1" style="--c:#7C3AED">∞</div>
+        <div class="num">01 / 12</div>
+        <div class="cap" id="c1">不是聊天机器人，而是一名工人。</div>
+        <div class="chip" id="d1">Não é um chatbot. É um trabalhador.</div>
+      </div>
+      <div class="clip scene-problem" id="s2" data-start="8" data-duration="10" data-track-index="1">
+        <div class="glow" style="--c:#FF5C5C"></div>
+        <div class="glyph" id="g2" style="--c:#FF5C5C">≢</div>
+        <div class="num">02 / 12</div>
+        <div class="cap" id="c2">永远清不完的队列，烧不停的 token。</div>
+        <div class="chip" id="d2">Filas que nunca esvaziam + custo de tokens explodindo</div>
+      </div>
+      <div class="clip scene-preflight" id="s3" data-start="18" data-duration="8" data-track-index="1">
+        <div class="glow" style="--c:#00E08A"></div>
+        <div class="glyph" id="g3" style="--c:#00E08A">✓✓✓</div>
+        <div class="num">03 / 12</div>
+        <div class="cap" id="c3">预检：成本熔断 ✓ · 鉴权 ✓ · 守护进程 ✓</div>
+        <div class="chip" id="d3">Pre-flight: kill-switch ✓ ($5/day) · auth ✓ · watcher ✓</div>
+      </div>
+      <div class="clip scene-discover_dag" id="s4" data-start="26" data-duration="12" data-track-index="1">
+        <div class="glow" style="--c:#2563EB"></div>
+        <div class="glyph" id="g4" style="--c:#2563EB">⬡</div>
+        <div class="num">04 / 12</div>
+        <div class="cap" id="c4">发现 50 个 · 去重 · 依赖图 · 智能体 = 14</div>
+        <div class="chip" id="d4">discover 50 issues · dedup · dependency DAG · autoscale fleet = 14</div>
+      </div>
+      <div class="clip scene-cycle" id="s5" data-start="38" data-duration="15" data-track-index="1">
+        <div class="glow" style="--c:#00E08A"></div>
+        <div class="glyph" id="g5" style="--c:#00E08A">▸▸▸</div>
+        <div class="num">05 / 12</div>
+        <div class="cap" id="c5">读取 → 定位 → 规划 → 改动 → 运行 → 验证 → PR</div>
+        <div class="chip" id="d5">read body+ACs → orient → plan → deterministic_edit → run → verify → PR — WORKS, not just compiles</div>
+      </div>
+      <div class="clip scene-quality_safety" id="s6" data-start="53" data-duration="12" data-track-index="1">
+        <div class="glow" style="--c:#FF5C5C"></div>
+        <div class="glyph" id="g6" style="--c:#FF5C5C">🔒</div>
+        <div class="num">06 / 12</div>
+        <div class="cap" id="c6">对抗式审查 · action_gate 失败即关闭</div>
+        <div class="chip" id="d6">AC gate · adversarial review (3 rubricas) · action_gate FAIL-CLOSED bloqueia force-push/segredo</div>
+      </div>
+      <div class="clip scene-token_economy" id="s7" data-start="65" data-duration="12" data-track-index="1">
+        <div class="glow" style="--c:#00E08A"></div>
+        <div class="glyph" id="g7" style="--c:#00E08A">96%</div>
+        <div class="num">07 / 12</div>
+        <div class="cap" id="c7">870 → 65 行（93%）· 最多减少 96% 的 token</div>
+        <div class="chip" id="d7">signatures 870→65 linhas (93%) · clamp + tee cache · dashboard :9090 · até 96% menos tokens</div>
+      </div>
+      <div class="clip scene-evidence_loop" id="s8" data-start="77" data-duration="10" data-track-index="1">
+        <div class="glow" style="--c:#7C3AED"></div>
+        <div class="glyph" id="g8" style="--c:#7C3AED">⟳</div>
+        <div class="num">08 / 12</div>
+        <div class="cap" id="c8">承诺必须有证据 · 绝不虚假的「完成」</div>
+        <div class="chip" id="d8">&lt;promise&gt; só sai COM prova · stall detector troca estratégia · nunca um falso 'done'</div>
+      </div>
+      <div class="clip scene-video_evidence" id="s9" data-start="87" data-duration="10" data-track-index="1">
+        <div class="glow" style="--c:#2563EB"></div>
+        <div class="glyph" id="g9" style="--c:#2563EB">🎬</div>
+        <div class="num">09 / 12</div>
+        <div class="cap" id="c9">web_verify → hyperframes → 确定性 MP4 附到 PR</div>
+        <div class="chip" id="d9">'faça um vídeo demonstrativo da tela X' → web_verify → hyperframes → MP4 determinístico no PR</div>
+      </div>
+      <div class="clip scene-runtimes" id="s10" data-start="97" data-duration="10" data-track-index="1">
+        <div class="glow" style="--c:#2563EB"></div>
+        <div class="glyph" id="g10" style="--c:#2563EB">11</div>
+        <div class="num">10 / 12</div>
+        <div class="cap" id="c10">十一种运行时，一套协议——只有速度不同</div>
+        <div class="chip" id="d10">11 runtimes, um protocolo — só a velocidade difere</div>
+      </div>
+      <div class="clip scene-always_on" id="s11" data-start="107" data-duration="8" data-track-index="1">
+        <div class="glow" style="--c:#00E08A"></div>
+        <div class="glyph" id="g11" style="--c:#00E08A">24/7</div>
+        <div class="num">11 / 12</div>
+        <div class="cap" id="c11">合并 · 关闭 · 空闲 · 唤醒 —— 7×24</div>
+        <div class="chip" id="d11">merge · close · idle · acorda com novo trabalho — 24/7</div>
+      </div>
+      <div class="clip scene-cta" id="s12" data-start="115" data-duration="8" data-track-index="1">
+        <div class="glow" style="--c:#7C3AED"></div>
+        <div class="glyph" id="g12" style="--c:#7C3AED">∞</div>
+        <div class="num">12 / 12</div>
+        <div class="cap" id="c12">pip install simplicio-loop · MIT · GitHub ⭐ · Discord</div>
+        <div class="chip" id="d12">pip install simplicio-loop · bash scripts/install.sh claude · MIT · Discord · GitHub ⭐</div>
+      </div>
+    <img class="logo" src="assets/logo.png" alt="simplicio-loop" />
+    <div class="brand">github.com/wesleysimplicio/simplicio-loop</div>
+    <div class="loopmark">&#8734;</div>
+  </div>
+  <script>
+    window.__timelines = window.__timelines || {};
+    var tl = gsap.timeline({ paused: true });
+    tl.fromTo("#s1", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 0);
+    tl.fromTo("#g1", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 0.1);
+    tl.fromTo("#c1", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 0.25);
+    tl.fromTo("#d1", {opacity:0}, {opacity:0.92, duration:0.5}, 0.45);
+    tl.to("#s1", {opacity:0, duration:0.4, ease:"power1.in"}, 7.6);
+    tl.set("#s1", {opacity:0}, 8);
+    tl.fromTo("#s2", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 8);
+    tl.fromTo("#g2", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 8.1);
+    tl.fromTo("#c2", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 8.25);
+    tl.fromTo("#d2", {opacity:0}, {opacity:0.92, duration:0.5}, 8.45);
+    tl.to("#s2", {opacity:0, duration:0.4, ease:"power1.in"}, 17.6);
+    tl.set("#s2", {opacity:0}, 18);
+    tl.fromTo("#s3", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 18);
+    tl.fromTo("#g3", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 18.1);
+    tl.fromTo("#c3", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 18.25);
+    tl.fromTo("#d3", {opacity:0}, {opacity:0.92, duration:0.5}, 18.45);
+    tl.to("#s3", {opacity:0, duration:0.4, ease:"power1.in"}, 25.6);
+    tl.set("#s3", {opacity:0}, 26);
+    tl.fromTo("#s4", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 26);
+    tl.fromTo("#g4", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 26.1);
+    tl.fromTo("#c4", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 26.25);
+    tl.fromTo("#d4", {opacity:0}, {opacity:0.92, duration:0.5}, 26.45);
+    tl.to("#s4", {opacity:0, duration:0.4, ease:"power1.in"}, 37.6);
+    tl.set("#s4", {opacity:0}, 38);
+    tl.fromTo("#s5", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 38);
+    tl.fromTo("#g5", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 38.1);
+    tl.fromTo("#c5", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 38.25);
+    tl.fromTo("#d5", {opacity:0}, {opacity:0.92, duration:0.5}, 38.45);
+    tl.to("#s5", {opacity:0, duration:0.4, ease:"power1.in"}, 52.6);
+    tl.set("#s5", {opacity:0}, 53);
+    tl.fromTo("#s6", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 53);
+    tl.fromTo("#g6", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 53.1);
+    tl.fromTo("#c6", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 53.25);
+    tl.fromTo("#d6", {opacity:0}, {opacity:0.92, duration:0.5}, 53.45);
+    tl.to("#s6", {opacity:0, duration:0.4, ease:"power1.in"}, 64.6);
+    tl.set("#s6", {opacity:0}, 65);
+    tl.fromTo("#s7", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 65);
+    tl.fromTo("#g7", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 65.1);
+    tl.fromTo("#c7", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 65.25);
+    tl.fromTo("#d7", {opacity:0}, {opacity:0.92, duration:0.5}, 65.45);
+    tl.to("#s7", {opacity:0, duration:0.4, ease:"power1.in"}, 76.6);
+    tl.set("#s7", {opacity:0}, 77);
+    tl.fromTo("#s8", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 77);
+    tl.fromTo("#g8", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 77.1);
+    tl.fromTo("#c8", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 77.25);
+    tl.fromTo("#d8", {opacity:0}, {opacity:0.92, duration:0.5}, 77.45);
+    tl.to("#s8", {opacity:0, duration:0.4, ease:"power1.in"}, 86.6);
+    tl.set("#s8", {opacity:0}, 87);
+    tl.fromTo("#s9", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 87);
+    tl.fromTo("#g9", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 87.1);
+    tl.fromTo("#c9", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 87.25);
+    tl.fromTo("#d9", {opacity:0}, {opacity:0.92, duration:0.5}, 87.45);
+    tl.to("#s9", {opacity:0, duration:0.4, ease:"power1.in"}, 96.6);
+    tl.set("#s9", {opacity:0}, 97);
+    tl.fromTo("#s10", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 97);
+    tl.fromTo("#g10", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 97.1);
+    tl.fromTo("#c10", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 97.25);
+    tl.fromTo("#d10", {opacity:0}, {opacity:0.92, duration:0.5}, 97.45);
+    tl.to("#s10", {opacity:0, duration:0.4, ease:"power1.in"}, 106.6);
+    tl.set("#s10", {opacity:0}, 107);
+    tl.fromTo("#s11", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 107);
+    tl.fromTo("#g11", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 107.1);
+    tl.fromTo("#c11", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 107.25);
+    tl.fromTo("#d11", {opacity:0}, {opacity:0.92, duration:0.5}, 107.45);
+    tl.to("#s11", {opacity:0, duration:0.4, ease:"power1.in"}, 114.6);
+    tl.set("#s11", {opacity:0}, 115);
+    tl.fromTo("#s12", {opacity:0, y:36}, {opacity:1, y:0, duration:0.5, ease:"power2.out"}, 115);
+    tl.fromTo("#g12", {scale:0.4, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:"back.out(2)"}, 115.1);
+    tl.fromTo("#c12", {opacity:0, y:18}, {opacity:1, y:0, duration:0.5}, 115.25);
+    tl.fromTo("#d12", {opacity:0}, {opacity:0.92, duration:0.5}, 115.45);
+    tl.to("#s12", {opacity:0, duration:0.4, ease:"power1.in"}, 122.6);
+    tl.set("#s12", {opacity:0}, 123);
+    window.__timelines["main"] = tl;
+  </script>
+</body>
+</html>

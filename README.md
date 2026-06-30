@@ -75,6 +75,11 @@ and keeps watching **24/7** for new work — all behind safety gates and a hard 
 Three things make it different: it is a **super-plugin of focused skills**, it runs the **same
 protocol on 11 runtimes**, and it does all of this with **aggressive, honest token economy**.
 
+Within the Simplicio product line, this repo is also the **current reference task flow** for
+company work. `simplicio-runtime` is the unified entrypoint going forward, but it is expected to
+reuse this loop's evidence-gated converge/drain discipline, durable attempt journal, and worker
+coordination patterns instead of creating a separate task semantics.
+
 <p align="center">
   <img src="assets/simplicio-loop-infographic.png" alt="simplicio-loop — the whole system at a glance: 6 core skills, 5 satellites, 5 accelerators, 48 extension points, 11 runtimes, up to 90% fewer tokens" width="920" />
 </p>
@@ -90,7 +95,7 @@ deep section and its worker.
 | Capability | What it does | Proof / worker | Details |
 |---|---|---|---|
 | 🎬 **Video evidence** (`video_evidence`) | Records the **real browser session** as moving proof a UI change works (Playwright, default); renders a **deterministic captioned MP4** with [hyperframes](https://github.com/heygen-com/hyperframes) for an explicit explainer request (`/simplicio-tasks make a video of screen X`) | `scripts/video_evidence.py` · BLOCKED (never fake-pass) without the toolchain | [§ Video evidence](#-video-evidence--playwright-by-default-hyperframes-on-request) |
-| 🧠 **Attempt memory + stall detector** | A durable run-journal (`.orchestrator/loop/journal.jsonl`) + a stall detector so the loop **changes strategy instead of oscillating**; incremental triage (`since`) reads only the delta each turn | `scripts/loop_journal.py` · `selftest` 9/9 | [§ Anti-oscillation](#-attempt-memory--stall-detector-anti-oscillation) |
+| 🧠 **Attempt memory + stall detector** | A durable run-journal (`.orchestrator/loop/journal.jsonl`) + a stall detector so the loop **changes strategy instead of oscillating**; incremental triage (`since`) reads only the delta each turn, and optional stage lineage makes retries/governance explicit | `scripts/loop_journal.py` · `selftest` 13/13 | [§ Anti-oscillation](#-attempt-memory--stall-detector-anti-oscillation) |
 | 🧭 **Repo conventions** (`repo_conventions`) | **Learns the repo's own playbook** — mines git history + merged PRs + static config into `.orchestrator/conventions.json` so every new branch/commit/PR mirrors the team's established style; worktree-per-item isolation is the default | `scripts/repo_conventions.py` · `selftest` 19/19 | [§ The full flow](#️-the-full-flow--from-demand-to-delivery) |
 | 🧩 **Scope reflection** (`dependency_graph`) | Maps local dependencies, reverse dependents, and related tests from the planned touched files; blocks task plans that ignore callers, sibling files, or proof points before the edit starts | `scripts/impact_audit.py` · `selftest` | [§ Tests & local checks](#-tests--local-checks-no-paid-ci) |
 | 🕸️ **Flow coverage** (`endpoint_compare`) | Maps mixed front/back/service workspaces: UI actions → frontend HTTP calls → backend endpoints → service calls; blocks frontend calls with no backend endpoint and stubbed endpoints, and surfaces unclassified loose ends | `scripts/flow_audit.py` · `selftest` | [§ Tests & local checks](#-tests--local-checks-no-paid-ci) |
@@ -280,7 +285,8 @@ Between turns, LMCache (when available) caches the KV state so re-feed costs nea
 
 A re-feed loop that remembers nothing oscillates — try X, fail, try X again — until the cap burns.
 simplicio-loop keeps a **durable run-journal** (`.orchestrator/loop/journal.jsonl`, append-only:
-`iteration · action · hypothesis · gate · error-fingerprint`) and a **stall detector**
+`iteration · action · hypothesis · gate · error-fingerprint`, plus optional lineage like
+`execution_state · stage_id · validator · decision · retry_count`) and a **stall detector**
 ([`scripts/loop_journal.py`](scripts/loop_journal.py), deterministic + model-free):
 
 - **Error fingerprint** — the failing gate output is reduced to a stable hash with line numbers,
@@ -292,10 +298,15 @@ simplicio-loop keeps a **durable run-journal** (`.orchestrator/loop/journal.json
   avoid, then **switches strategy** or **escalates to the human gate** with the fingerprint.
 - `loop_journal.py resume` is read at the top of every turn, so a fresh process continues without
   re-deriving prior attempts (real resume) and never retries a known dead-end.
+- When the loop is doing extraction, validation, or governed retries, `record` can also stamp
+  `--execution-state`, `--stage-id`, `--source-artifact`, `--chunk-id`, `--validator`,
+  `--decision`, `--retry-count`, `--blocked-reason`, and `--next-action`, so the next turn knows
+  not just *what* failed, but *where in the flow* it failed.
 
 ```bash
 loop_journal.py resume                       # what was tried + dead-ends to avoid
-loop_journal.py record --iteration N --action "…" --gate fail --gate-output test.log
+loop_journal.py record --iteration N --action "…" --gate fail --gate-output test.log \
+  --execution-state planned --stage-id validate --validator pytest --decision retry
 loop_journal.py stall --k 3 --exit-code      # PROGRESS → re-feed · STALLED → switch/escalate
 ```
 

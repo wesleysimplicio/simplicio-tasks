@@ -236,11 +236,13 @@ tries X, fails, tries X again — until the cap burns. The journal + stall detec
 are deterministic and model-free (`scripts/loop_journal.py`), so a resume is reproducible from disk.
 
 **1. The run-journal — `.orchestrator/loop/journal.jsonl` (append-only attempt memory).** One
-record per turn: `{iteration, action, hypothesis, gate: pass|fail|blocked, fingerprint, ts}`. On a
-failing gate the gate output is reduced to a **stable fingerprint** — line numbers, file paths,
-hex/uuids, timestamps and durations are normalized away, so the SAME bug hashes the SAME across
-turns even when the incidental text differs. This is the loop's memory of WHAT WAS TRIED; the
-scratchpad only holds the goal.
+record per turn: `{iteration, action, hypothesis, gate: pass|fail|blocked, fingerprint, ts}` with
+optional lineage fields such as `execution_state`, `stage_id`, `source_artifact`, `chunk_id`,
+`validator`, `decision`, `retry_count`, `blocked_reason`, and `next_action`. On a failing gate the
+gate output is reduced to a **stable fingerprint** — line numbers, file paths, hex/uuids,
+timestamps and durations are normalized away, so the SAME bug hashes the SAME across turns even
+when the incidental text differs. This is the loop's memory of WHAT WAS TRIED; the scratchpad only
+holds the goal.
 
 **2. The stall detector — `loop_journal.py stall`.** Reads the journal and returns
 `PROGRESS | STALLED`. STALLED = the last **K** consecutive attempts all failed with the **same
@@ -256,7 +258,8 @@ python3 scripts/loop_journal.py resume
 #   → distinct actions tried + their outcomes + "AVOID (dead-ends): …" + live fingerprint
 # … decide + operate + verify (step 3) …
 python3 scripts/loop_journal.py record --iteration N --action "<change>" \
-    --hypothesis "<why>" --gate pass|fail --gate-output <test.log>
+    --hypothesis "<why>" --gate pass|fail --gate-output <test.log> \
+    --execution-state planned --stage-id validate --validator pytest --decision retry
 # re-feed gate (step 4) — before re-feeding the same goal
 python3 scripts/loop_journal.py stall --k 3 --exit-code
 #   PROGRESS → re-feed normally
