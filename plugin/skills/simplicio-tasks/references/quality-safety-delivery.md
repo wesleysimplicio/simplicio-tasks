@@ -34,6 +34,41 @@ The DoD gate is then mechanical: `task_anchor.py gate --exit-code` (exit 12 = cr
 pending) MUST pass before "done" or PR-open. This is the loop's durable working memory for SCOPE,
 the sibling of `loop_journal`'s working memory for ATTEMPTS.
 
+### 4a' — Scope/impact gate for dependency-aware tasks
+Before editing, and again if the changed surface expands, make the task's blast radius explicit:
+
+```bash
+python3 scripts/impact_audit.py audit <root> \
+  --file <seed-you-touch> \
+  --cover <reviewed-or-adjusted-files> \
+  --fail-on high \
+  --json > .orchestrator/impact-audit.json
+```
+
+The audit maps three things around each seed file:
+
+- local dependencies used by the seed
+- reverse dependents/callers that reach the seed, including transitive import chains
+- related tests that prove the same path
+
+Default interpretation:
+
+- `uncovered_reverse_dependency` is `high` and blocks the task: a caller/dependent file exists
+  outside the declared review/edit surface.
+- `uncovered_local_dependency` and `uncovered_related_test` are `medium`: the plan is missing a
+  neighbor or proof point that should at least be reviewed.
+
+For shared/public contracts, signature changes, DTO/schema changes, or refactors in widely
+imported modules, run the stricter gate:
+
+```bash
+python3 scripts/impact_audit.py audit <root> --fail-on medium
+```
+
+The final evidence can cite `.orchestrator/impact-audit.json` or summarize the explicit caller/test
+classification. "I changed one file" is not enough when the dependency map says the task reached
+farther.
+
 ### 4b — WORKS, not just compiles (run-verification, mandatory)
 "Compiles" ≠ "done". Before done it must RUN:
 - New/changed command → invoke for real: `--help` returns 0 AND a minimal happy-path produces the
@@ -44,6 +79,34 @@ the sibling of `loop_journal`'s working memory for ATTEMPTS.
   behavior.
 - Use `validate`/`smoke` if bound. **Front-end change → `web_verify`** (see web-evidence.md):
   screenshot + trace as evidence. An item that compiles but was never run is PARTIAL.
+
+### 4b' — Flow coverage gate for front/back/service workspaces
+When a workspace contains frontend, backend, and services under the same root — or the task touches
+any cross-surface user flow — run a structural flow audit before planning and again before done:
+
+```
+python3 scripts/flow_audit.py audit <root> --fail-on high --json > .orchestrator/flow-audit.json
+```
+
+The audit builds a static map of UI actions, frontend HTTP calls, backend endpoints, and backend
+service calls. It fails the default gate on objective high-confidence gaps:
+
+- `frontend_call_without_backend_endpoint`: the UI/client calls an API path that no scanned backend
+  exposes.
+- `backend_endpoint_stub`: an endpoint body still looks like TODO, `pass`, `NotImplemented`, 501, or
+  a thrown "not implemented" error.
+
+Medium gaps are still work, not noise. They must be classified in the task anchor or promoted to an
+AC before done: UI action with no observed backend call, backend endpoint with no observed frontend
+caller, or backend local-looking service call with no local endpoint. If the AC promises backend
+integration for a UI flow, run the stricter gate:
+
+```
+python3 scripts/flow_audit.py audit <root> --fail-on medium
+```
+
+The final evidence must include either `.orchestrator/flow-audit.json` or the human summary. A green
+unit test is not enough when the flow graph still has an unclassified loose end.
 
 ### 4c — Adversarial verify for MEDIUM+ items (multi-vote)
 Spawn 2–3 INDEPENDENT verifiers, each prompted to REFUTE the implementation AND check each AC.

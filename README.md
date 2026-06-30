@@ -84,7 +84,7 @@ protocol on 11 runtimes**, and it does all of this with **aggressive, honest tok
 ## 📘 Official capability record
 
 The complete, official roster of what `simplicio-tasks` ships — every capability below is **real,
-runnable, and tested** (`python3 scripts/check.py`: claims-audit 4/4 + 28 tests). Each links to its
+runnable, and tested** (`python3 scripts/check.py`: claims-audit 5/5 + local test suite). Each links to its
 deep section and its worker.
 
 | Capability | What it does | Proof / worker | Details |
@@ -92,6 +92,8 @@ deep section and its worker.
 | 🎬 **Video evidence** (`video_evidence`) | Records the **real browser session** as moving proof a UI change works (Playwright, default); renders a **deterministic captioned MP4** with [hyperframes](https://github.com/heygen-com/hyperframes) for an explicit explainer request (`/simplicio-tasks make a video of screen X`) | `scripts/video_evidence.py` · BLOCKED (never fake-pass) without the toolchain | [§ Video evidence](#-video-evidence--playwright-by-default-hyperframes-on-request) |
 | 🧠 **Attempt memory + stall detector** | A durable run-journal (`.orchestrator/loop/journal.jsonl`) + a stall detector so the loop **changes strategy instead of oscillating**; incremental triage (`since`) reads only the delta each turn | `scripts/loop_journal.py` · `selftest` 9/9 | [§ Anti-oscillation](#-attempt-memory--stall-detector-anti-oscillation) |
 | 🧭 **Repo conventions** (`repo_conventions`) | **Learns the repo's own playbook** — mines git history + merged PRs + static config into `.orchestrator/conventions.json` so every new branch/commit/PR mirrors the team's established style; worktree-per-item isolation is the default | `scripts/repo_conventions.py` · `selftest` 19/19 | [§ The full flow](#️-the-full-flow--from-demand-to-delivery) |
+| 🧩 **Scope reflection** (`dependency_graph`) | Maps local dependencies, reverse dependents, and related tests from the planned touched files; blocks task plans that ignore callers, sibling files, or proof points before the edit starts | `scripts/impact_audit.py` · `selftest` | [§ Tests & local checks](#-tests--local-checks-no-paid-ci) |
+| 🕸️ **Flow coverage** (`endpoint_compare`) | Maps mixed front/back/service workspaces: UI actions → frontend HTTP calls → backend endpoints → service calls; blocks frontend calls with no backend endpoint and stubbed endpoints, and surfaces unclassified loose ends | `scripts/flow_audit.py` · `selftest` | [§ Tests & local checks](#-tests--local-checks-no-paid-ci) |
 | 🔒 **Fail-closed safety gate** (`action_gate`) | A `PreToolUse`/git-pre-push hook that **mechanically blocks** force-push, history rewrite, mass-delete, destructive DDL, infra teardown, and secret-laden commits/pushes — Step 5 made executable, not prose | `hooks/action_gate.py` · `selftest` 15/15 | [§ Safety](#-safety-non-negotiable) |
 | 🔬 **Local verification** | A test suite (worker selftests + an **e2e of the loop driver** proving evidence-gated exit) + a **claims-audit** (referenced scripts exist · counts consistent · `_bundle ≡ source`) — all local, **no paid CI** | `scripts/check.py` · `scripts/claims_audit.py` · `tests/` | [§ Tests & local checks](#-tests--local-checks-no-paid-ci) |
 | ✅ **Honest savings** | The savings line is now **evidence-gated, not mandatory** — a number is shown only with a measured receipt (clamp/signatures/cache/`deterministic_edit`/ledger); never fabricated | token-economy contract | [§ Token economy](#-token-economy) |
@@ -227,8 +229,8 @@ flowchart TD
   POOL --> QG
   subgraph QG["7 · Quality gates"]
     direction LR
-    Q1["AC gate = real DoD"]
-    Q2["WORKS not just compiles · web_verify (Playwright) · video_evidence (Playwright recording · hyperframes on request)"]
+    Q1["AC gate + impact_audit = real DoD"]
+    Q2["WORKS not just compiles · web_verify · video_evidence · flow_audit"]
     Q3["adversarial review · thermos rubrics"]
   end
   QG --> SG
@@ -535,6 +537,16 @@ python3 scripts/check.py            # the whole gate (audit + tests)
 - **Claims audit** (`scripts/claims_audit.py`, fail-closed) — every `scripts/*.py` the docs
   reference exists · the extension-point count agrees across all files · each cited worker command
   actually runs · the shipped `simplicio_loop/_bundle/` skills are **byte-identical** to source.
+- **Impact audit** (`scripts/impact_audit.py`) — for any code task, proves the declared task
+  surface covers the local blast radius: dependencies, reverse dependents, and related tests.
+  ```bash
+  python3 scripts/impact_audit.py audit . --file path/to/seed.py --cover path/to/seed.py --fail-on high
+  ```
+- **Flow audit** (`scripts/flow_audit.py`) — for mixed front/back/service repos, produces the
+  `endpoint_compare` evidence map and fails on objective integration gaps:
+  ```bash
+  python3 scripts/flow_audit.py audit . --fail-on high
+  ```
 - **Wire it as a git pre-push hook** to keep `main` honest for free:
   ```bash
   printf '#!/bin/sh\npython3 scripts/check.py\n' > .git/hooks/pre-push && chmod +x .git/hooks/pre-push

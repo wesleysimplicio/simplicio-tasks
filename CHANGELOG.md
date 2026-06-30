@@ -5,6 +5,29 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.15.0] — 2026-06-30
+
+### Added
+- **Task-scope impact gate (`scripts/impact_audit.py`).** The orchestrator can now audit the
+  planned task surface before editing: local dependencies, reverse dependents/callers, and related
+  tests are mapped from the seed files a task intends to touch. Uncovered reverse dependencies now
+  block the plan by default, and `--fail-on medium` upgrades missing local deps/tests into blockers
+  for shared/public contracts and signature changes.
+- **Full-stack flow coverage gate (`scripts/flow_audit.py`).** The orchestrator can now map mixed
+  frontend/backend/service workspaces into a UI-action → frontend-call → backend-endpoint →
+  service-call graph, blocking objective integration gaps such as frontend calls with no matching
+  backend endpoint and backend endpoints that still look stubbed/incomplete. Medium-confidence loose
+  ends (buttons/actions with no observed backend call, orphan endpoints, local-looking service calls
+  without local endpoints) must be explicitly classified or promoted to ACs for flows that promise
+  backend integration.
+
+### Changed
+- `simplicio-tasks`, `simplicio-loop`, and `simplicio-review` now require impact-audit evidence
+  before and during shared-file changes so callers/tests cannot stay outside the declared task
+  surface by accident.
+- `simplicio-tasks`, `simplicio-loop`, and `simplicio-review` now require flow-audit evidence for
+  mixed front/back/service changes, with `--fail-on medium` for ACs that promise backend integration.
+
 ## [3.14.1] — 2026-06-29
 
 ### Changed

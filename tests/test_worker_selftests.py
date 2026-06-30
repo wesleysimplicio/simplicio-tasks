@@ -1,8 +1,8 @@
 """Aggregate the deterministic `selftest` of every worker that ships one.
 
-Each worker (`loop_journal`, `billing_aggregator`, `savings_harness`) carries a model-free
-`selftest` that proves its arithmetic with no files. This runs them as subprocesses and asserts
-exit 0 + a PASS line — so `python3 scripts/check.py` (or pytest) re-proves them on every change.
+Each worker with a model-free `selftest` proves its own contract with no external services. This
+runs them as subprocesses and asserts exit 0 + a PASS line — so `python3 scripts/check.py`
+(or pytest) re-proves them on every change.
 """
 import os
 import subprocess
@@ -17,6 +17,8 @@ SELFTESTS = [
     ("scripts/savings_harness.py", "selftest"),
     ("scripts/task_anchor.py", "selftest"),
     ("scripts/pr_evidence.py", "selftest"),
+    ("scripts/flow_audit.py", "selftest"),
+    ("scripts/impact_audit.py", "selftest"),
 ]
 
 
@@ -53,6 +55,18 @@ def test_task_anchor_selftest():
 def test_pr_evidence_selftest():
     r = _run("scripts/pr_evidence.py", "selftest")
     assert r.returncode == 0, "pr_evidence selftest failed:\n%s%s" % (r.stdout, r.stderr)
+    assert "PASS" in r.stdout, r.stdout
+
+
+def test_flow_audit_selftest():
+    r = _run("scripts/flow_audit.py", "selftest")
+    assert r.returncode == 0, "flow_audit selftest failed:\n%s%s" % (r.stdout, r.stderr)
+    assert "PASS" in r.stdout, r.stdout
+
+
+def test_impact_audit_selftest():
+    r = _run("scripts/impact_audit.py", "selftest")
+    assert r.returncode == 0, "impact_audit selftest failed:\n%s%s" % (r.stdout, r.stderr)
     assert "PASS" in r.stdout, r.stdout
 
 

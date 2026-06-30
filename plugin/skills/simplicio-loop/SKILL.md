@@ -173,14 +173,29 @@ detector below. It is the difference between a loop that converges and one that 
    last recorded turn's commit. **And re-read the task anchor** — `python3 scripts/task_anchor.py
    check --goal "<the goal worked this turn>" --exit-code` — so the turn stays on the SAME frozen
    acceptance criteria and cannot drift: a `DRIFT` verdict (exit 11) means the goal moved; STOP and
-   re-anchor explicitly (`--force`), never wander silently. The journal is the loop's memory for
-   ATTEMPTS; the anchor is its memory for SCOPE. Act only on what is still genuinely open; never redo
-   done work or act on a stale picture (idempotency).
+   re-anchor explicitly (`--force`), never wander silently. Before deciding the next code change,
+   refresh the local impact map for the planned seed files with
+   `python3 scripts/impact_audit.py audit <root> --file <seed> --cover <known-reviewed-file> --json
+   > .orchestrator/impact-audit.json` so the turn sees callers, neighboring dependencies, and
+   related tests before it edits. For shared/public contracts or signature changes, tighten that gate
+   to `--fail-on medium`. For mixed front/back/service workspaces or any cross-surface user flow,
+   also refresh the flow map with
+   `python3 scripts/flow_audit.py audit <root> --fail-on high --json > .orchestrator/flow-audit.json`
+   so triage sees UI actions, frontend calls, backend endpoints, and service calls before deciding
+   the next move. The journal is the loop's memory for ATTEMPTS; the anchor is its memory for SCOPE;
+   the impact audit is its memory for BLAST RADIUS; the flow audit is its memory for INTEGRATION.
+   Act only on what is still genuinely open; never redo done work or act on a stale picture
+   (idempotency).
 3. **Work the goal** each turn as if fresh, against that triaged state. The model DECIDES the
    AC-scoped change; the **`simplicio-dev-cli` operator APPLIES and verifies it**
    (`simplicio-dev-cli task "<change>" --target <file>`) — do not hand-edit inside the loop. End EVERY
    iteration with a short, concrete verification — the operator's passing test run, or one gate /
-   command / `file:line` receipt. **Then RECORD the attempt** in the journal:
+   command / `file:line` receipt. If the actual edit surface expands, rerun `impact_audit.py` with
+   the new seeds/cover and treat uncovered reverse dependents as failed verification; use
+   `--fail-on medium` for shared/public contracts or signature changes. If the change crosses
+   UI/API/service boundaries, rerun
+   `flow_audit.py` after the edit and treat high gaps as failed verification; use `--fail-on medium`
+   when the AC promises backend integration for that UI flow. **Then RECORD the attempt** in the journal:
    `loop_journal.py record --iteration N --action "<what you changed>" --hypothesis "<why>"
    --gate pass|fail --gate-output <test.log>` — on a failure the gate output is fingerprinted so the
    SAME failure is recognised next turn. Keep iterations small and verifiable: a turn that only
@@ -262,6 +277,12 @@ only if, in the SAME turn, there is concrete evidence the work is truly done:
 
 - the run-verification gate passed ("works, not just compiles" — `simplicio-tasks` Step 4b) —
   the `simplicio-dev-cli` operator's passing test+verify pass (its contract step 5/6) satisfies this, or
+- the flow coverage gate passed for a mixed front/back/service change —
+  `python3 scripts/flow_audit.py audit <root> --fail-on high` (or `--fail-on medium` for ACs that
+  promise backend integration) found no unhandled UI/API/service gaps, or
+- the scope/impact gate passed for the changed shared files —
+  `python3 scripts/impact_audit.py audit <root> --file <seed> ...` found no uncovered reverse
+  dependents (and, for shared/public contracts, no uncovered local deps/tests under `--fail-on medium`), or
 - the named acceptance criteria are each checked with a `file:line` or command-output receipt —
   mechanically enforced by the task anchor: `python3 scripts/task_anchor.py gate --exit-code` must
   return READY (every anchored AC `done` with a receipt; exit 12 = still pending) before the promise

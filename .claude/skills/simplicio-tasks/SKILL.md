@@ -173,6 +173,27 @@ wander off the task (the "desvio de tarefas" fix, Step 4 drift guard). Detail:
 
 > **Understand Anything (optional).** If `.understand-anything/knowledge-graph.json` exists, use Understand Anything as the primary orientation — the graph already holds the complete code structure, relationships, and guided tours. Query it via semantic search instead of signatures-only reads.
 
+> **Scope reflection / impact coverage (mandatory for any coded change).** Before editing, declare
+> the seed files you expect to touch and the files you already know must be reviewed/adjusted, then
+> run `python3 scripts/impact_audit.py audit <root> --file <seed> --cover <planned-file> --json >
+> .orchestrator/impact-audit.json`. This maps local dependencies, reverse dependents, and related
+> tests so the task cannot silently ignore callers, adjacent modules, or tests that prove the same
+> flow. Any `high` gap (`uncovered_reverse_dependency`) blocks planning until that caller/dependent
+> file is added to the review surface or explicitly ruled out by evidence. For shared/public
+> contracts, signature changes, DTO/schema changes, or refactors in widely imported modules, use
+> `--fail-on medium` so uncovered local dependencies and related tests also block the task plan.
+
+> **Full-stack flow coverage (mandatory for mixed front/back/service workspaces).** When a repo
+> root contains frontend + backend + services together — or the item touches a user flow that crosses
+> those surfaces — run the flow audit BEFORE planning: `python3 scripts/flow_audit.py audit <root>
+> --fail-on high --json > .orchestrator/flow-audit.json`. This maps UI actions, frontend HTTP
+> calls, backend endpoints, and backend service calls. Any `high` gap (frontend call with no backend
+> endpoint, or stubbed/incomplete backend endpoint) is a BLOCKER and must become an AC/fix before
+> `done`. `medium` gaps (button/action with no observed backend call, endpoint with no observed
+> caller, backend local-looking service call with no local endpoint) must be classified explicitly:
+> local-only/internal/external by design, or promoted to an AC. For flows whose AC promises backend
+> integration, rerun with `--fail-on medium`; do not leave loose ends unclassified.
+
 > **Video-creation work-items (`video_evidence`).** A work-item — or the skill argument itself
 > (e.g. `/simplicio-tasks make an explainer video of the login screen`) — may ASK for a demo video.
 > Classify it cheaply in the terminal: `python3 scripts/video_evidence.py detect --goal "<text>"`.
@@ -220,12 +241,24 @@ Never mark done without green gates + evidence; a failure is NOT a blocker — i
   is mechanical: `python3 scripts/task_anchor.py gate --exit-code` (exit 12 = criteria still
   pending) MUST pass before you declare done or open the PR — "done" requires every anchored AC
   verified with a receipt.
+- **4a' Scope/impact gate:** if the actual change surface expanded, rerun
+  `python3 scripts/impact_audit.py audit <root> --file <seed> ... --cover <reviewed-file> ...`
+  and refresh `.orchestrator/impact-audit.json`. The task is not done while a changed shared file
+  still has uncovered reverse dependents, or while a contract/signature change leaves callers,
+  neighboring dependencies, or related tests outside the declared review surface. Use
+  `--fail-on medium` for shared/public contracts.
 - **4b WORKS, not just compiles:** RUN it (`--help` + happy path / affected tests). Front-end
   change → `web_verify` (screenshot + trace, `references/web-evidence.md`). For moving proof of a UI
   change, `video_evidence verify --url <url>` records the **real session with Playwright** (default
   engine) → a video attached to the PR. Only when the item ITSELF asks for a personalized explainer
   ("make a video of screen X") use `--engine hyperframes` (deterministic captioned slideshow).
   Contract: `references/video-evidence.md`. Compiles-but-never-run = PARTIAL.
+- **4b' Flow coverage gate (mixed front/back/service workspaces):** rerun
+  `python3 scripts/flow_audit.py audit <root> --fail-on high` after the change (or
+  `--fail-on medium` when the AC promises backend integration). The task is not done while a
+  frontend call lacks a backend endpoint, a backend endpoint is stubbed/incomplete, or any UI/API/
+  service gap remains unclassified. Attach `.orchestrator/flow-audit.json` or the human summary as
+  evidence alongside tests/screenshots.
 - **4c Adversarial verify (MEDIUM+):** 2–3 independent verifiers prompted to REFUTE + check each
   AC; majority-refute → back to fix. Delegate to `simplicio-review` when loaded. Full: `references/quality-safety-delivery.md`.
 
