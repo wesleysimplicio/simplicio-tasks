@@ -33,15 +33,17 @@ headless. In interactive chat, just keep saying "continue" — the protocol is i
 `orient_clamp.py` works as-is in the integrated terminal. Reference it in
 `copilot-instructions.md` so Copilot routes heavy commands through it.
 
-## Native bind — MCP
+## Native bind — MCP (REQUIRED)
 
-`.vscode/mcp.json` (the installer writes this):
+`simplicio-runtime` native bind is REQUIRED on VS Code/Copilot, not optional. `simplicio
+install --global` (run automatically by `scripts/install.sh vscode`) writes `.vscode/mcp.json`:
 
 ```json
-{ "servers": { "simplicio": { "command": "simplicio", "args": ["mcp", "serve"] } } }
+{ "servers": { "simplicio": { "command": "simplicio", "args": ["serve", "--mcp", "--stdio"] } } }
 ```
 
-Then the extension points bind to `simplicio-runtime` natively.
+Then the extension points bind to `simplicio-runtime` natively. Verify with `simplicio doctor
+--json` before relying on the orchestrator.
 
 ## Use
 

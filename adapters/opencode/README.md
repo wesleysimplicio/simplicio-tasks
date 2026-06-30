@@ -27,13 +27,17 @@ the budget kill-switch.
 
 `orient_clamp.py` works as-is. Reference it in `AGENTS.md` so heavy commands are clamped.
 
-## Native bind — MCP
+## Native bind — MCP (REQUIRED)
 
-`opencode.json`:
+`simplicio-runtime` native bind is REQUIRED on OpenCode, not optional. `scripts/install.sh
+opencode` writes this to `opencode.json` for you (`merge_opencode_mcp` in
+`scripts/install_lib.py`):
 
 ```json
-{ "mcp": { "simplicio": { "type": "local", "command": ["simplicio", "mcp", "serve"] } } }
+{ "mcp": { "simplicio": { "type": "local", "command": ["simplicio", "serve", "--mcp", "--stdio"] } } }
 ```
+
+Verify with `simplicio doctor --json` before relying on the orchestrator.
 
 ## Use
 

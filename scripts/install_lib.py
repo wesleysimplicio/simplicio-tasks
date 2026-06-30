@@ -37,17 +37,31 @@ SKILLS = ["simplicio-tasks", "simplicio-loop", "simplicio-orient",
 # (the bare `simplicio` command is reserved for the separate `simplicio-runtime`, not this operator.)
 OPERATORS = [("simplicio-mapper", "simplicio-mapper"), ("simplicio-cli", "simplicio-dev-cli")]
 MARK_A, MARK_B = "<!-- simplicio-tasks:begin -->", "<!-- simplicio-tasks:end -->"
-ENTRY_BLOCK = (
-    MARK_A + "\n"
-    "## simplicio-tasks — Universal Looping Orchestrator\n\n"
-    "Load and follow the protocol in `.claude/skills/simplicio-tasks/SKILL.md` and its "
-    "companion skills (`simplicio-loop`, `simplicio-orient`, `simplicio-review`, "
-    "`simplicio-compress`, `simplicio-learn`). Run commands for real; clamp heavy output via "
-    "`python3 hooks/orient_clamp.py -- <cmd>`; never close work without a merged PR or "
-    "concrete evidence; honor the cost kill-switch and the irreversible-op human gate.\n\n"
-    "Invoke with: `/simplicio-tasks <the body of work>`\n"
-    + MARK_B
-)
+
+
+def entry_block(runtime=None):
+    """Build the entry-file block. On a FORCED_BIND_RUNTIMES host, append a REQUIRED line so the
+    host's own standing-instructions file (AGENTS.md/GEMINI.md/copilot-instructions.md/steering)
+    states the native-bind + full-protocol requirement, not just an installer-side log line."""
+    body = (
+        MARK_A + "\n"
+        "## simplicio-tasks — Universal Looping Orchestrator\n\n"
+        "Load and follow the protocol in `.claude/skills/simplicio-tasks/SKILL.md` and its "
+        "companion skills (`simplicio-loop`, `simplicio-orient`, `simplicio-review`, "
+        "`simplicio-compress`, `simplicio-learn`) IN FULL — every step, no partial subset. Run "
+        "commands for real; clamp heavy output via `python3 hooks/orient_clamp.py -- <cmd>`; "
+        "never close work without a merged PR or concrete evidence; honor the cost kill-switch "
+        "and the irreversible-op human gate.\n"
+    )
+    if runtime in FORCED_BIND_RUNTIMES:
+        body += (
+            "\nNative bind to `simplicio-runtime` (MCP or CLI) is REQUIRED on this host, not "
+            "optional — verify with `simplicio doctor --json` before starting; if unreachable, "
+            "STOP and report the gap rather than silently degrading to the unbound LLM-only "
+            "path (install: `pip install -U simplicio-installer && simplicio install --global`).\n"
+        )
+    body += "\nInvoke with: `/simplicio-tasks <the body of work>`\n" + MARK_B
+    return body
 
 # entry file + MCP client id per runtime; None entry = no instructions file needed
 RUNTIMES = {
@@ -96,9 +110,10 @@ def copy_hooks(target, is_global):
         log("hooks -> %s" % dst)
 
 
-def ensure_entry(target, rel):
+def ensure_entry(target, rel, runtime=None):
     if not rel:
         return
+    block = entry_block(runtime)
     path = os.path.join(target, rel)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     existing = ""
@@ -109,9 +124,9 @@ def ensure_entry(target, rel):
         # refresh the block in place
         pre = existing.split(MARK_A)[0]
         post = existing.split(MARK_B, 1)[1] if MARK_B in existing else ""
-        new = pre.rstrip() + "\n\n" + ENTRY_BLOCK + post
+        new = pre.rstrip() + "\n\n" + block + post
     else:
-        new = (existing.rstrip() + "\n\n" if existing.strip() else "") + ENTRY_BLOCK + "\n"
+        new = (existing.rstrip() + "\n\n" if existing.strip() else "") + block + "\n"
     with open(path, "w", encoding="utf-8") as f:
         f.write(new)
     log("entry -> %s" % rel)
@@ -242,6 +257,67 @@ def _link_operator_bins():
         _link_console_script(b, kind="operator")
 
 
+# Runtimes where native bind to simplicio-runtime (MCP or CLI) is a REQUIRED policy, not an
+# optional nicety: the loop and ALL simplicio-tasks/simplicio-loop/simplicio-review directives
+# must run bound, never silently degrade to the full LLM-only fallback on these hosts.
+FORCED_BIND_RUNTIMES = {"claude", "codex", "cursor", "vscode", "antigravity",
+                        "kiro", "opencode", "hermes"}
+# Runtimes simplicio-runtime's own `simplicio install --global` auto-detects and registers
+# end-to-end (writes the MCP config for each, idempotent to re-run) — see
+# `simplicio install --global --dry-run --json` -> assistant_adapters.
+RUNTIME_AUTO_BIND = {"claude", "codex", "cursor", "vscode", "kiro"}
+
+
+def ensure_runtime_bind(runtime, cfg):
+    """Force the simplicio-runtime native bind for FORCED_BIND_RUNTIMES (REQUIRED, not optional).
+
+    Mirrors `ensure_operators`'s severity: best-effort registration now, loud unmissable warning
+    if `simplicio` is missing or registration can't be confirmed — the loop is expected to BLOCK
+    on an unbound forced-bind runtime rather than quietly running the degraded LLM-only fallback.
+    No-op for runtimes outside FORCED_BIND_RUNTIMES (gemini/aider/openclaw keep the old optional
+    log line further down in main()).
+    """
+    if runtime not in FORCED_BIND_RUNTIMES:
+        return
+    simplicio_path = shutil.which("simplicio")
+    if not simplicio_path:
+        log("! simplicio-runtime is REQUIRED for '%s' (project policy) and is NOT installed." % runtime)
+        log("  install it: pip install -U simplicio-installer && simplicio install --global")
+        log("  until then simplicio-tasks/simplicio-loop/simplicio-review MUST refuse to claim")
+        log("  native-bind status and should block rather than silently run the LLM-only fallback.")
+        return
+    if runtime in RUNTIME_AUTO_BIND:
+        try:
+            subprocess.run([simplicio_path, "install", "--global"], check=False,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            log("native bind REQUIRED+applied for '%s' -> simplicio install --global" % runtime)
+        except Exception as e:
+            log("! 'simplicio install --global' failed for '%s': %s" % (runtime, e))
+            log("  retry manually: simplicio install --global")
+    elif runtime == "opencode":
+        pass  # merge_opencode_mcp() in main() already does this, with the same forced severity
+    else:
+        # antigravity, hermes: no config schema this installer can safely auto-write (Antigravity's
+        # MCP config path/format isn't verified here; Hermes binds natively, no MCP file at all).
+        # Verify the runtime itself is healthy so the requirement is at least checked, not assumed.
+        try:
+            import re as _re
+            r = subprocess.run([simplicio_path, "doctor", "--json"], check=False,
+                                capture_output=True, text=True, timeout=30)
+            # doctor --json pretty-prints across lines, so regex over the whole blob rather
+            # than assuming one-JSON-object-per-line (that only holds for the progress events).
+            m = _re.search(r'"overall_status"\s*:\s*"(\w+)"', r.stdout or "")
+            healthy = bool(m) and m.group(1) in ("ok", "warning")
+        except Exception:
+            healthy = False
+        if healthy:
+            log("simplicio-runtime reachable for '%s' — follow adapters/%s/README.md to finish "
+                "the native bind (no safe auto-write for this host's config format)." % (runtime, runtime))
+        else:
+            log("! simplicio doctor did not report healthy for '%s' — native bind is REQUIRED "
+                "here; fix it (simplicio doctor --repair) before relying on simplicio-tasks." % runtime)
+
+
 def detect():
     for rt, mark in [("cursor", ".cursor"), ("claude", ".claude"),
                      ("kiro", ".kiro"), ("vscode", ".github"), ("gemini", ".gemini"),
@@ -316,7 +392,7 @@ def merge_opencode_mcp():
             return
         mcp["simplicio"] = {
             "type": "local",
-            "command": [simplicio_path, "mcp", "serve"],
+            "command": [simplicio_path, "serve", "--mcp", "--stdio"],
             "enabled": True
         }
         with open(OPCODE_CONFIG, "w", encoding="utf-8") as f:
@@ -324,7 +400,8 @@ def merge_opencode_mcp():
         log("opencode MCP registered -> %s" % OPCODE_CONFIG)
     except Exception as e:
         log("! opencode MCP registration failed: %s" % e)
-        log("  manually: simplicio-cli mcp register --client opencode")
+        log('  manually add to opencode.json: {"mcp":{"simplicio":{"type":"local",'
+            '"command":["simplicio","serve","--mcp","--stdio"]}}}')
 
 
 def _pip(args_):
@@ -477,7 +554,7 @@ def main():
     _link_console_script("simplicio-loop", kind="cli")
     copy_skills(target)
     copy_hooks(target, is_global)
-    ensure_entry(target, cfg["entry"])
+    ensure_entry(target, cfg["entry"], runtime)
     if cfg["hooks"] == "claude":
         merge_claude_hooks(target, is_global)
     elif cfg["hooks"] == "cursor":
@@ -489,8 +566,9 @@ def main():
     if runtime == "opencode":
         copy_skills_opencode()
         merge_opencode_mcp()
-    if cfg["mcp"] and runtime != "opencode":
-        log("optional native bind:  simplicio-cli mcp register --client %s" % cfg["mcp"])
+    ensure_runtime_bind(runtime, cfg)
+    if cfg["mcp"] and runtime not in FORCED_BIND_RUNTIMES:
+        log("optional native bind:  simplicio install --global   (or: simplicio serve --mcp --stdio)")
     setup_monitor(not minimal)
     log("verify / repair anytime:  python3 scripts/doctor.py --repair  (optional pieces never block)")
     print("done. use:  /simplicio-tasks finish all the open issues")

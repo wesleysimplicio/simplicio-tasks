@@ -42,12 +42,21 @@ the `max_iterations` cap, or the budget kill-switch. `orient_rewrite` (Bash matc
 `orient_clamp.py` works immediately: `python3 hooks/orient_clamp.py -- go test ./...`. The
 `PreToolUse` hook makes it automatic for read-only commands.
 
-## Native bind (optional, near-zero token)
+## Native bind (REQUIRED, near-zero token)
 
-If `simplicio-runtime` is installed, register it so the extension points bind natively:
+`simplicio-runtime` native bind via MCP is REQUIRED on Claude Code, not optional — every
+`simplicio-tasks`/`simplicio-loop`/`simplicio-review` directive must run bound, never silently
+degrade to the LLM-only fallback. `scripts/install.sh claude` forces this automatically; by hand:
 
 ```bash
-simplicio-cli mcp register --client claude-code
+pip install -U simplicio-installer && simplicio install --global
+```
+
+This registers the MCP server (`simplicio serve --mcp --stdio`) for Claude in one pass (plus
+Codex/Cursor/VS Code/Kiro if present). Verify before relying on the orchestrator:
+
+```bash
+simplicio doctor --json   # must report the runtime reachable
 ```
 
 ## Use

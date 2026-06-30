@@ -31,14 +31,18 @@ Detection and termination are decoupled — neither parses the other's state inl
 `orient_clamp.py` works as-is. For automatic clamping, add a `beforeShellExecution`-style
 rewrite in your Cursor hooks pointing at `orient_rewrite.py` (opt-in; conservative + fail-open).
 
-## Native bind — MCP / rules
+## Native bind — MCP / rules (REQUIRED)
+
+`simplicio-runtime` native bind is REQUIRED on Cursor, not optional — `scripts/install.sh
+cursor` forces this automatically; by hand:
 
 ```bash
-simplicio-cli mcp register --client cursor
+pip install -U simplicio-installer && simplicio install --global   # registers Cursor's MCP config
 ```
 
-A `.cursor/rules/` entry can pin model-per-role choices (pstack-style) if you use the
-simplicio-runtime model router.
+Verify with `simplicio doctor --json` before relying on the orchestrator. A `.cursor/rules/`
+entry can pin model-per-role choices (pstack-style) if you use the simplicio-runtime model
+router.
 
 ## Use
 

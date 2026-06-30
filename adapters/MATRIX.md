@@ -11,25 +11,32 @@ Three capabilities decide how rich an adapter is:
 - **Loop drive** — how `simplicio-loop` re-feeds the goal: a real **stop-hook**, or the
   **self-paced** fallback (host scheduler / cron / `/loop`).
 - **Native bind** — whether `simplicio-runtime` (or a native command set) binds the extension
-  points for near-zero-token determinism; otherwise the LLM fallbacks cover 100%.
+  points for near-zero-token determinism. **REQUIRED, not optional, on Claude, Codex, Cursor,
+  VS Code, Antigravity, Kiro, OpenCode, and Hermes** (`scripts/install_lib.py`
+  `FORCED_BIND_RUNTIMES`) — these 8 must verify the bind (`simplicio doctor --json`) and STOP
+  rather than silently run the unbound LLM fallback. Gemini, Aider, and OpenClaw keep the bind
+  optional/native-by-design per their own adapter.
 
 `orient_clamp.py` (token economy) works on **all** runtimes with no wiring — it's just a wrapper.
 
 | # | Runtime | Skill load | Loop drive | Hooks | Native bind | Adapter |
 |---|---|---|---|---|---|---|
-| 1 | **Claude Code** | `.claude/skills/` + `.claude-plugin/` | `Stop` hook | ✅ full | MCP (`simplicio-cli mcp register`) | [claude](claude/README.md) |
-| 2 | **Codex** | `AGENTS.md` → `SKILL.md` | self-paced | ⚠️ partial | MCP / Python adapter | [codex](codex/README.md) |
-| 3 | **VS Code (Copilot)** | `.github/copilot-instructions.md` | self-paced (tasks) | ⚠️ tasks | MCP (VS Code MCP) | [vscode](vscode/README.md) |
-| 4 | **Cursor** | `.cursor-plugin/` + `.claude/skills/` | `stop` + `afterAgentResponse` | ✅ full | MCP / rules | [cursor](cursor/README.md) |
-| 5 | **Antigravity** | rules / `AGENTS.md` | self-paced | ⚠️ | MCP | [antigravity](antigravity/README.md) |
-| 6 | **Kiro** | `.kiro/steering/` | self-paced (specs) | ⚠️ | MCP | [kiro](kiro/README.md) |
-| 7 | **OpenCode** | `AGENTS.md` + config | self-paced | ⚠️ | MCP | [opencode](opencode/README.md) |
-| 8 | **Gemini** | `GEMINI.md` → `SKILL.md` | self-paced | ⚠️ | MCP / native adapter | [gemini](gemini/README.md) |
-| 9 | **Aider** | `CONVENTIONS.md` (read) | self-paced | ❌ | — (LLM fallback) | [aider](aider/README.md) |
-| 10 | **Hermes** | native skill recall | native loop | ✅ native | **native** (extension points) | [hermes](hermes/README.md) |
+| 1 | **Claude Code** | `.claude/skills/` + `.claude-plugin/` | `Stop` hook | ✅ full | MCP, **REQUIRED** (`simplicio install --global`) | [claude](claude/README.md) |
+| 2 | **Codex** | `AGENTS.md` → `SKILL.md` | self-paced | ⚠️ partial | MCP / Python adapter, **REQUIRED** | [codex](codex/README.md) |
+| 3 | **VS Code (Copilot)** | `.github/copilot-instructions.md` | self-paced (tasks) | ⚠️ tasks | MCP, **REQUIRED** | [vscode](vscode/README.md) |
+| 4 | **Cursor** | `.cursor-plugin/` + `.claude/skills/` | `stop` + `afterAgentResponse` | ✅ full | MCP / rules, **REQUIRED** | [cursor](cursor/README.md) |
+| 5 | **Antigravity** | rules / `AGENTS.md` | self-paced | ⚠️ | MCP, **REQUIRED** | [antigravity](antigravity/README.md) |
+| 6 | **Kiro** | `.kiro/steering/` | self-paced (specs) | ⚠️ | MCP, **REQUIRED** | [kiro](kiro/README.md) |
+| 7 | **OpenCode** | `AGENTS.md` + config | self-paced | ⚠️ | MCP, **REQUIRED** | [opencode](opencode/README.md) |
+| 8 | **Gemini** | `GEMINI.md` → `SKILL.md` | self-paced | ⚠️ | MCP / native adapter (optional) | [gemini](gemini/README.md) |
+| 9 | **Aider** | `CONVENTIONS.md` (read) | self-paced | ❌ | — (LLM fallback, no bind exists) | [aider](aider/README.md) |
+| 10 | **Hermes** | native skill recall | native loop | ✅ native | **native** (extension points), **REQUIRED** | [hermes](hermes/README.md) |
 | 11 | **OpenClaw** | plugin SDK / `skills/` | native scheduler | ✅ native | **native** (plugin SDK) | [openclaw](openclaw/README.md) |
 
 Legend: ✅ first-class · ⚠️ partial / via a generic mechanism · ❌ none (degrade to fallback).
+**REQUIRED** = native bind is mandatory project policy on this host (rows 1–7 + 10); not following
+it is a policy violation, not a graceful degradation — see `scripts/install_lib.py`
+`FORCED_BIND_RUNTIMES` and each adapter's "Native bind (REQUIRED)" section.
 
 ## Install (any runtime)
 
@@ -42,18 +49,25 @@ pwsh scripts/install.ps1 <runtime> [-Global]      # Windows / pwsh
 ```
 
 The installer copies the 6 skills into the runtime's skills location, wires the loop hooks
-where supported, and prints the MCP-register line for native binding. Everything it does is a
-copy + a config edit — reversible, no build.
+where supported, and — on the 8 `FORCED_BIND_RUNTIMES` (claude, codex, cursor, vscode,
+antigravity, kiro, opencode, hermes) — actually applies the native MCP/CLI bind
+(`ensure_runtime_bind` in `scripts/install_lib.py`), not just prints a suggestion. Everything it
+does is a copy + a config edit — reversible, no build.
 
-## What degrades gracefully
+## What degrades gracefully — and what does not
 
 - **No stop-hook** → the loop self-paces via the host scheduler (`simplicio-loop` "No-hook
-  fallback"). Same exit conditions (evidence-gated promise, cap, budget).
-- **No native bind** → the LLM performs every extension point with shell/git/gh/file tools.
+  fallback"). Same exit conditions (evidence-gated promise, cap, budget). This degradation is
+  always allowed — it's a drive-mechanism choice, not a policy violation.
+- **No native bind, on Gemini/Aider/OpenClaw only** → the LLM performs every extension point
+  with shell/git/gh/file tools. This is the one allowed bind-fallback; it does NOT apply to the
+  8 `FORCED_BIND_RUNTIMES` (see above) — there, an unreachable bind is a STOP-and-report
+  condition, not a silent degrade.
 - **No skill loader** (e.g. Aider) → the adapter inlines `SKILL.md` as the runtime's
   conventions/instructions file. Larger context, identical behavior.
 
-The promise: **same protocol, same gates, same safety on all 11 — only the speed differs.**
+The promise: **same protocol, same gates, same safety on all 11 — only the speed differs, except
+that on 8 of the 11 the native bind itself is mandatory, not a speed-only nicety.**
 
 ## Verifying an adapter
 

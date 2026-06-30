@@ -50,13 +50,18 @@ The user invokes it with a target body of work:
 If no argument is given, default to "all open work-items in the default source" and
 confirm scope in one line only if ambiguous.
 
-## Extension points (bind native, else fall back)
+## Extension points (bind native — REQUIRED on 8 of the 11 runtimes)
 
 The skill defines **48 named extension points** (see the Step 1b table in `SKILL.md`).
 For each point, if this runtime exposes a faster native capability, **bind it** —
-the step becomes deterministic and near-zero-token. If not, perform the documented
-LLM fallback. The skill never requires a specific runtime; the binding lives here in
-the host, not in the skill.
+the step becomes deterministic and near-zero-token. The skill never requires a specific
+runtime; the binding lives here in the host, not in the skill.
+
+On Claude Code, Codex, Cursor, VS Code, Antigravity, Kiro, OpenCode, and Hermes, binding to
+`simplicio-runtime` (MCP or CLI) is **REQUIRED project policy, not an optional speed-up** — see
+`adapters/MATRIX.md` `FORCED_BIND_RUNTIMES`. On these 8, an unreachable bind is a STOP-and-report
+condition (verify with `simplicio doctor --json`); only Gemini, Aider, and OpenClaw fall back to
+the plain LLM/native-by-design path silently.
 
 ## Video evidence (hyperframes)
 
@@ -80,3 +85,7 @@ path + verdict; a missing toolchain BLOCKS, never a fake pass.
   savings line. Credited only on a passing quality gate.
 - Verify claims locally before pushing: `python3 scripts/check.py` (test suite + claims-audit +
   `_bundle ≡ source` parity). Self-runs on bare python3 — no CI, no pytest required. Keep it green.
+- On Claude/Codex/Cursor/VS Code/Antigravity/Kiro/OpenCode/Hermes, the `simplicio-runtime` native
+  bind (MCP or CLI) is REQUIRED before driving the loop — `simplicio doctor --json` must report
+  the runtime reachable. An unbound run on one of these 8 is a blocker to fix
+  (`simplicio install --global`), never a silent fallback to the plain-LLM path.

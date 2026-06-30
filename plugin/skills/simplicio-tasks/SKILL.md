@@ -9,7 +9,10 @@ A runtime-agnostic autonomous orchestrator. It works on ANY strong LLM/runtime (
 Copilot, Gemini, Cursor, local models, CI agents) with NO mandatory external dependency. Every
 step is something the LLM can do directly with standard tools (shell, git, gh, file edit, web).
 Where a host runtime exposes a faster native capability, it BINDS to the extension points
-(Step 1b) — near-zero token cost — but the skill never REQUIRES it.
+(Step 1b) — near-zero token cost. The skill itself never requires it (the abstraction works on
+any strong LLM) — but on Claude Code, Codex, Cursor, VS Code, Antigravity, Kiro, OpenCode, and
+Hermes, binding to `simplicio-runtime` (MCP or CLI) IS a project-policy requirement, enforced at
+the host/installer level, not by the skill (see `adapters/MATRIX.md` `FORCED_BIND_RUNTIMES`).
 
 The target is in the skill arguments (e.g. `/simplicio-tasks finish all open issues`). If no
 argument, default to "all open work-items in the default source"; confirm scope in ONE line only
@@ -121,6 +124,11 @@ near-zero token cost; otherwise the LLM performs the documented fallback. The sk
 ABSTRACTION, never a runtime — the INVERTED DEPENDENCY (the skill names no runtime; the runtime
 detects the skill). Full table + fallbacks: `references/extension-points.md`. Core rule: any
 DECIDED change goes through `deterministic_edit` — never hand-write or regenerate it with a model.
+
+On the 8 `FORCED_BIND_RUNTIMES` (Claude, Codex, Cursor, VS Code, Antigravity, Kiro, OpenCode,
+Hermes), the LLM fallback for an extension point is allowed only until the native bind is
+verified reachable (`simplicio doctor --json`); a run that starts unbound on one of these hosts
+must report the gap as a blocker, not proceed silently on the fallback indefinitely.
 
 When the run is driven by `simplicio-loop` (Step 0, the armed body-of-work path), two points are bound to REQUIRED
 operators instead of LLM fallbacks: `simplicio-mapper` surveys the repo (`orient`) and
@@ -352,5 +360,6 @@ on the STOP signal, budget exhaustion, or a safety halt. Full ten axes + arming 
   and load the compact form thereafter.
 - **Portability:** any strong LLM/runtime runs this end-to-end with standard tools. A host runtime
   that binds the extension points makes steps deterministic + near-zero-token; without it the LLM
-  fallbacks cover 100%. Same skill, any runtime. Runtimes without real multi-agent degrade the
-  heavy-path to internal multi-pass — no swarm, same gates.
+  fallbacks cover 100%. Same skill, any runtime — EXCEPT that on the 8 `FORCED_BIND_RUNTIMES`
+  the native bind is a policy requirement, not a speed-only nicety (see Step 1b). Runtimes
+  without real multi-agent degrade the heavy-path to internal multi-pass — no swarm, same gates.

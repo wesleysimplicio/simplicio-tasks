@@ -19,7 +19,12 @@ Hermes drives the loop natively (its scheduler IS the watcher). `simplicio-loop`
 native durable scheduler; the evidence-gated completion-promise and the cap/budget guards are
 enforced by the runtime, not a shell hook.
 
-## Native bind — extension points (the whole point)
+## Native bind — extension points (the whole point, REQUIRED)
+
+`simplicio-runtime` native bind is REQUIRED on Hermes, not optional — there is no unbound
+fallback worth running here; if the bind isn't live, STOP and fix it rather than letting the
+orchestrator quietly fall back to a plain-LLM loop on a host built for native binding. Verify
+with `simplicio doctor --json` before relying on it.
 
 Hermes binds, among others: `orient`, `recall`, `deterministic_edit`, `claim`, `worktree`,
 `diagnostics`, `validate`, `pr`, `watcher`, `savings_ledger`, `model_route`. When bound, the

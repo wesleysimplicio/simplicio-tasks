@@ -5,6 +5,31 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.18.0] — 2026-06-30
+
+### Changed
+- **Native simplicio-runtime bind is now REQUIRED, not optional, on 8 of the 11 supported
+  runtimes** (Claude Code, Codex, Cursor, VS Code, Antigravity, Kiro, OpenCode, Hermes —
+  `FORCED_BIND_RUNTIMES` in `scripts/install_lib.py`). Previously every adapter's "Native bind"
+  section was framed as an optional speed-up, and the installer only printed a suggestion line
+  that never actually ran. `scripts/install_lib.py` gained `ensure_runtime_bind()`, called
+  unconditionally for these 8 runtimes during install: it runs `simplicio install --global`
+  (auto-registers Claude/Codex/Cursor/VS Code/Kiro's MCP config in one pass), fixes OpenCode's
+  MCP registration, verifies Hermes/Antigravity's runtime health via `simplicio doctor --json`,
+  and — if `simplicio` isn't installed at all — logs a loud, unmissable warning instead of a
+  quiet "optional" note. Every generated entry file (`AGENTS.md`/`GEMINI.md`/
+  `copilot-instructions.md`/Kiro steering) now states the requirement inline for these hosts.
+- **Fixed a broken MCP invocation referenced across 5 adapter READMEs and the OpenCode
+  auto-registration code.** `simplicio-cli mcp register --client <x>` doesn't perform MCP
+  registration — `simplicio-cli` (simplicio-dev-cli) defers entirely to `simplicio install`. The
+  correct, now-documented path is `simplicio install --global` (covers Claude/Codex/Cursor/
+  VS Code/Kiro) or the manual JSON snippet pointing at `simplicio serve --mcp --stdio`. Four
+  README JSON snippets (VS Code, Antigravity, Kiro, OpenCode) and `merge_opencode_mcp()` had the
+  args backwards (`["mcp", "serve"]` instead of `["serve", "--mcp", "--stdio"]`) — fixed
+  everywhere it appeared.
+- Gemini, Aider, and OpenClaw are unaffected — native bind stays optional/native-by-design on
+  those three, per the user's explicit scope for this change.
+
 ## [3.17.0] — 2026-06-30
 
 ### Changed
