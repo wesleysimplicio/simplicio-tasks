@@ -6,7 +6,7 @@ the code. Deterministic, stdlib-only, no network. Exits 0 when every check passe
 so it can gate a commit/push (`scripts/check.py`, or a git pre-push hook). NOT a GitHub Action;
 runs locally, free.
 
-Four checks:
+Five checks:
   1. referenced-scripts-exist  Every `scripts/<name>.py` mentioned in the docs actually exists.
   2. extension-point-count      Every "<N> extension points / named (binding) points" figure and
                                 the README badge agree on ONE number.
@@ -14,6 +14,7 @@ Four checks:
                                 it has one, else it `py_compile`s and prints usage cleanly.
   4. bundle-parity              Every file under .claude/skills/ has a byte-identical copy under
                                 simplicio_loop/_bundle/skills/ (the shipped pip bundle ≡ source).
+  5. plugin-parity              The lean marketplace plugin tree mirrors the source files it ships.
 
 Usage:
     python3 scripts/claims_audit.py [--json] [--only 1,2,3,4]
@@ -43,10 +44,17 @@ COUNT_RES = [
     re.compile(r"extension%20points-(\d{1,3})-"),
 ]
 # worker/hook scripts whose `selftest` proves them; others just need to be invokable
-SELFTEST_SCRIPTS = ["scripts/loop_journal.py", "scripts/billing_aggregator.py",
-                    "scripts/savings_harness.py", "scripts/repo_conventions.py",
-                    "scripts/task_anchor.py", "scripts/pr_evidence.py",
-                    "hooks/action_gate.py"]
+SELFTEST_SCRIPTS = [
+    "scripts/loop_journal.py",
+    "scripts/billing_aggregator.py",
+    "scripts/savings_harness.py",
+    "scripts/repo_conventions.py",
+    "scripts/task_anchor.py",
+    "scripts/pr_evidence.py",
+    "scripts/flow_audit.py",
+    "scripts/impact_audit.py",
+    "hooks/action_gate.py",
+]
 
 
 def _docs():

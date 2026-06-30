@@ -4,7 +4,8 @@
 Runs the whole verification gate locally — deterministic, stdlib-only, cross-platform:
 
   1. claims-audit   `scripts/claims_audit.py` (referenced scripts exist · extension-point count
-                    consistent · cited commands run · _bundle ≡ source)
+                    consistent · cited commands run, including flow/impact audit selftests
+                    · _bundle ≡ source)
   2. test suite     pytest if installed (`pytest -q tests/`); otherwise each `tests/test_*.py`
                     self-runs on bare python3 (the suite needs no pip).
 

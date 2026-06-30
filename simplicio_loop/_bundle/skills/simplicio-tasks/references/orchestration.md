@@ -45,6 +45,21 @@ API surface — a 600-line file → ~40 lines; full-body read only when editing 
 
 **2b-3 Build the plan BEFORE coding:** files to change, files to read first, AC checklist, risks/
 unknowns, complexity (trivial|small|medium|large|critical). Coding starts only after the plan.
+Make the plan mechanically accountable with the impact audit:
+
+```bash
+python3 scripts/impact_audit.py audit <root> \
+  --file <seed-you-expect-to-touch> \
+  --cover <files-already-in-plan> \
+  --fail-on high \
+  --json > .orchestrator/impact-audit.json
+```
+
+Treat a `high` issue as a planning failure: a caller/dependent file sits outside the declared task
+surface, so the plan is incomplete. For shared/public contracts, signature changes, DTO/schema
+changes, or refactors inside widely imported modules, tighten the gate to `--fail-on medium` so
+uncovered local dependencies and related tests also block the plan. The point is to know the blast
+radius before editing, not after the regression.
 
 ## Step 3 — Route: fast-path vs heavy-path
 - **Fast-path** (queue small AND every item complexity ≤ 3): inline, solo, minimal receipt,

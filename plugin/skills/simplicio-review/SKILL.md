@@ -60,6 +60,16 @@ down, no proportional token blow-up). Each gets the SAME context bundle and a DI
   ledger entry with a screenshot + trace path AND 0 console errors (see the orchestrator's
   `references/web-evidence.md`, Playwright). Missing or failing → `fix-required`. Evidence is the
   artifact PATH, never pasted DOM/pixels.
+- **Cross-surface change → require flow evidence.** If the diff touches frontend + backend/service
+  files, or an AC promises a UI→API/service flow, REQUIRE `scripts/flow_audit.py audit <root>
+  --fail-on high` evidence (`--fail-on medium` when backend integration is part of the AC). Missing
+  audit, frontend call without backend endpoint, stubbed endpoint, or unclassified UI/API/service
+  loose end → `fix-required`.
+- **Shared-contract change → require impact evidence.** If the diff changes exported/shared
+  functions, controllers, DTOs/schemas, shared types, or a widely imported module, REQUIRE
+  `scripts/impact_audit.py audit <root> --file <seed> --cover <reviewed-file> ...` evidence.
+  Any uncovered reverse dependency is `fix-required`; use `--fail-on medium` when the contract
+  itself changed so uncovered neighboring deps/tests also block.
 
 Each reviewer's task: **"Refute this change. Find any AC not met, any fake return, any break.
 Default to 'not done' if uncertain. Cite every finding as `file:line` with a one-line why."**
