@@ -10,3 +10,7 @@ dist/
 .playwright-mcp/
 output/
 build/
+
+# Rust build artifacts
+rust/target/
+video/

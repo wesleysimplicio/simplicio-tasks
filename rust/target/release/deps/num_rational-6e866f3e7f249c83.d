@@ -1,8 +1,0 @@
-/Users/wesleysimplicio/Projetos/ai/simplicio-loop/rust/target/release/deps/num_rational-6e866f3e7f249c83.d: /Users/wesleysimplicio/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-rational-0.4.2/src/lib.rs /Users/wesleysimplicio/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-rational-0.4.2/src/pow.rs
-
-/Users/wesleysimplicio/Projetos/ai/simplicio-loop/rust/target/release/deps/libnum_rational-6e866f3e7f249c83.rlib: /Users/wesleysimplicio/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-rational-0.4.2/src/lib.rs /Users/wesleysimplicio/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-rational-0.4.2/src/pow.rs
-
-/Users/wesleysimplicio/Projetos/ai/simplicio-loop/rust/target/release/deps/libnum_rational-6e866f3e7f249c83.rmeta: /Users/wesleysimplicio/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-rational-0.4.2/src/lib.rs /Users/wesleysimplicio/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-rational-0.4.2/src/pow.rs
-
-/Users/wesleysimplicio/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-rational-0.4.2/src/lib.rs:
-/Users/wesleysimplicio/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-rational-0.4.2/src/pow.rs:
