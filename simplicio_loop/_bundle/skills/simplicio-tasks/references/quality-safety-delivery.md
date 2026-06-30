@@ -108,12 +108,14 @@ python3 scripts/flow_audit.py audit <root> --fail-on medium
 The final evidence must include either `.orchestrator/flow-audit.json` or the human summary. A green
 unit test is not enough when the flow graph still has an unclassified loose end.
 
-### 4c — Adversarial verify for MEDIUM+ items (multi-vote)
-Spawn 2–3 INDEPENDENT verifiers, each prompted to REFUTE the implementation AND check each AC.
-Majority-refute → back to fix. TRIVIAL/SMALL keep single self-review. When `simplicio-review` is
-loaded, delegate this gate to it (parallel rubrics → deduped verdict). Each verifier gets the full
-body + ACs, the diff, the run evidence; task: "Find any AC NOT met, any fake/placeholder return.
-Refute or confirm with specific `file:line`."
+### 4c — Adversarial verify for EVERY item (multi-vote, no tier shortcut)
+Spawn 3 INDEPENDENT verifiers — Rubrics A/B/C of the Step 3 6-role floor — each prompted to REFUTE
+the implementation AND check each AC. Majority-refute → back to fix. There is no TRIVIAL/SMALL
+single-self-review shortcut left: the 6-agent floor applies to every item, so this fan-out is
+already paid for by the floor, not an extra cost layered on top of a cheaper default. When
+`simplicio-review` is loaded, delegate this gate to it (parallel rubrics → deduped verdict). Each
+verifier gets the full body + ACs, the diff, the run evidence; task: "Find any AC NOT met, any
+fake/placeholder return. Refute or confirm with specific `file:line`."
 
 ## Step 5 — Safety gates (NON-NEGOTIABLE)
 Before any commit/push: secret-scan the diff (block on hit). Before any IRREVERSIBLE op

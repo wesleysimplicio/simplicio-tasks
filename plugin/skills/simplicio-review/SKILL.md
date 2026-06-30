@@ -1,6 +1,6 @@
 ---
 name: simplicio-review
-description: Deep, adversarial branch review — parallel subagents on separate rubrics (security/correctness AND code-quality), spawned in one message, then deduped into one verdict. Use before merging non-trivial work, when the user says "review this branch/PR hard", "thermo-nuclear review", "is this safe to merge", or when simplicio-tasks needs the MEDIUM+ adversarial verify gate. Scopes strictly to the diff; refutes rather than rubber-stamps.
+description: Deep, adversarial branch review — parallel subagents on separate rubrics (security/correctness, code-quality, and does-it-reproduce), spawned in one message, then deduped into one verdict. Runs for EVERY item, no TRIVIAL/SMALL shortcut — it is 3 of the 6 roles in simplicio-tasks' minimum-agent floor. Use before merging any work, when the user says "review this branch/PR hard", "thermo-nuclear review", "is this safe to merge", or when simplicio-tasks needs the Step 4c adversarial verify gate. Scopes strictly to the diff; refutes rather than rubber-stamps.
 ---
 
 # simplicio-review — thermo-nuclear adversarial review
@@ -15,9 +15,9 @@ security vs code-quality rubrics, dedup-on-synthesis) wired into the simplicio e
 
 ## When to use
 
-- Before merging any MEDIUM/LARGE/CRITICAL item (the Step 4c gate).
+- Before merging ANY item, TRIVIAL through CRITICAL (the Step 4c gate) — `simplicio-tasks`' 6-agent
+  floor (Step 3) has no solo/self-review path left; this fan-out is 3 of those 6 roles, always.
 - "review this branch hard", "thermo-nuclear", "find what's wrong before I merge".
-- NOT for TRIVIAL/SMALL items — those keep a single self-review (don't pay the latency).
 
 ## Step 1 — Gather context ONCE (parent)
 
@@ -36,7 +36,7 @@ unless the change makes them reachable.
 
 ## Step 2 — Fan out parallel reviewers (one message, background)
 
-Spawn 2–3 INDEPENDENT subagents IN A SINGLE MESSAGE (so they run concurrently — wall-clock
+Spawn 3 INDEPENDENT subagents IN A SINGLE MESSAGE (so they run concurrently — wall-clock
 down, no proportional token blow-up). Each gets the SAME context bundle and a DISTINCT rubric:
 
 ### Rubric A — security & correctness
@@ -53,7 +53,7 @@ down, no proportional token blow-up). Each gets the SAME context bundle and a DI
 - Boundary cleanliness: leaky abstractions, duplicated logic that ignores an adjacent module.
 - Naming, dead code, comments that lie, tests that assert nothing.
 
-### Rubric C (LARGE/CRITICAL only) — does-it-reproduce / runtime
+### Rubric C — does-it-reproduce / runtime (always spawned; its evidence requirements below stay scoped to what the diff touches)
 - Actually run the changed path; confirm the AC behavior end-to-end (not just "compiles").
 - **Front-end change → require web evidence.** If the diff touches front-end files
   (`*.tsx/jsx/vue/svelte/css/html`, `components/**`, `pages/**`, `app/**`), REQUIRE a `web_verify`

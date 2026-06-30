@@ -61,13 +61,33 @@ changes, or refactors inside widely imported modules, tighten the gate to `--fai
 uncovered local dependencies and related tests also block the plan. The point is to know the blast
 radius before editing, not after the regression.
 
-## Step 3 — Route: fast-path vs heavy-path
-- **Fast-path** (queue small AND every item complexity ≤ 3): inline, solo, minimal receipt,
-  single targeted test. No fan-out. Finish → Step 6.
-- **Heavy-path** (large queue OR any medium+ item): fan out. Compute the fleet, keep a CONTINUOUS
-  WORKER POOL fed by a LIVE queue (not frozen waves) — a freed worker pulls the next item, even
-  one that appeared seconds ago. Serialize same-file items (conflict detection). Quarantine items
-  that fail K times to a dead-letter list.
+## Step 3 — Route: minimum fleet vs scaled fleet
+
+**Hard floor: every run keeps ≥6 orchestrated agents in flight — no solo/inline path.** A single
+TRIVIAL item is decomposed by ROLE, not by work-item count, so the floor holds without inventing
+parallel work that doesn't exist:
+
+| # | Role | Cardinality |
+|---|---|---|
+| 1 | Orient + plan (Step 2b) | 1 agent |
+| 2 | Implement (Step 4) | 1 agent (2 on MEDIUM+: a fast-follow pair) |
+| 3 | Review — Rubric A: security & correctness (`simplicio-review`) | 1 agent |
+| 4 | Review — Rubric B: quality & maintainability (`simplicio-review`) | 1 agent |
+| 5 | Review — Rubric C: does-it-reproduce / runtime (`simplicio-review`) | 1 agent |
+| 6 | Independent blast-radius reviewer — re-checks Step 4a' `impact_audit.json` (and `flow_audit.json` when applicable) as a second set of eyes, not the implementer self-grading its own scope claim | 1 agent |
+
+Roles 1–2 are sequential (plan before implementing); roles 3–6 spawn in ONE message so they run
+concurrently — wall-clock down, no proportional token blow-up (`simplicio-review` Step 2 pattern).
+Rubric C's heaviest sub-checks (`web_verify`, `flow_audit`) stay conditional on the diff actually
+touching that surface — the rubric runs always, its expensive evidence requirements stay scoped.
+
+- **Minimum fleet** (queue small AND every item complexity ≤ 3): the 6-role floor above runs on
+  the single item. There is no solo/self-review shortcut left to fall back to — the floor IS the
+  minimum, never undercut it. Finish → Step 6.
+- **Scaled fleet** (large queue OR any medium+ item): fan out beyond 6. Compute the fleet, keep a
+  CONTINUOUS WORKER POOL fed by a LIVE queue (not frozen waves) — a freed worker pulls the next
+  item, even one that appeared seconds ago. Serialize same-file items (conflict detection).
+  Quarantine items that fail K times to a dead-letter list.
 
 **Worker report contract (every worker MUST follow).** A worker result is re-injected into the
 orchestrator context verbatim and costs budget on EVERY delegation. Forbid narration; mandate the
@@ -92,10 +112,12 @@ Step 4 loop). Feed the top corrections into the shared digest so agents pre-empt
 cap_cpu  = max(1, floor((cores - 2) / 2))
 cap_mem  = floor(free_gb / 2)
 cap_disk = (free_disk_gb < 10) ? 0 : (free_disk_gb < 25 ? 1 : 99)
-fleet    = min(cap_cpu, cap_mem, cap_disk, independent_items, 16)   # hard cap 16/wave
+fleet    = max(6, min(cap_cpu, cap_mem, cap_disk, independent_items, 16))   # 6-agent floor, 16/wave cap
 waves    = ceil(queue_size / fleet)
 ```
-If resources unknown or disk < 10 GB → fast-path/solo only.
+If resources unknown or disk < 10 GB, the 6-role floor still runs — switch isolation to
+`isolation=shared` (one checkout, sequential commits on overlapping files) instead of
+worktree-per-item, so the floor is met without the disk cost of 6 separate worktrees.
 
 **Worktree-per-item isolation (DEFAULT) + a cost opt-out.** Each item gets its OWN
 `git worktree add` checkout by default, so parallel workers never touch the same tree and there is

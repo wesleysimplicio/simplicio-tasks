@@ -5,6 +5,20 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.17.0] — 2026-06-30
+
+### Changed
+- **Minimum 6-agent orchestration floor (`simplicio-tasks`/`simplicio-review`).** Removed the
+  solo/inline fast-path and the TRIVIAL/SMALL single-self-review shortcut. Every item, regardless
+  of size, now runs a 6-role floor: orient+plan, implement, 3 parallel adversarial review rubrics
+  (security/correctness, quality, does-it-reproduce — `simplicio-review`), and an independent
+  blast-radius reviewer that re-checks `impact_audit.json`/`flow_audit.json` instead of trusting
+  the implementer's self-reported scope. The Step 3 auto-scaling formula gained a `max(6, ...)`
+  floor; when disk is too tight for 6 worktrees, the floor still runs under `isolation=shared`
+  instead of dropping below 6. Rubric C (does-it-reproduce) is no longer gated to LARGE/CRITICAL —
+  it runs always; only its heaviest sub-checks (web/flow evidence) stay scoped to diffs that touch
+  that surface.
+
 ## [3.16.0] — 2026-06-30
 
 ### Added
