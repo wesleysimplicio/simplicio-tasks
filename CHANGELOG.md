@@ -5,6 +5,16 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.16.0] — 2026-06-30
+
+### Added
+- **Cross-agent handoff on incomplete stop (`hooks/loop_stop.py`).** A budget-halted or
+  iteration-cap stop now writes `.orchestrator/loop/HANDOFF.md` before clearing the scratchpad —
+  the frozen goal/acceptance criteria from `task_anchor.py`, the last attempts from
+  `loop_journal.py`, and concrete resume steps. Previously these stops deleted the scratchpad with
+  nothing durable left for a different agent/runtime to pick the task back up cold; a successful
+  (promise-fulfilled) stop is unaffected and still needs no handoff.
+
 ## [3.15.0] — 2026-06-30
 
 ### Added

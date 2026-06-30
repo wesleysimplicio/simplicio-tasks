@@ -312,7 +312,7 @@ Where the host runtime supports lifecycle hooks, bind the two cross-platform hoo
 | Hook | Fires | Job |
 |---|---|---|
 | `afterAgentResponse` → `loop_capture.py` | after every turn | extract `<promise>…</promise>`; if it exactly equals `completion_promise` AND in-turn evidence exists → `touch .orchestrator/loop/done`. Fire-and-forget, `exit 0`. Never stops the loop itself. |
-| `stop` → `loop_stop.py` | when the turn ends | guard clauses, each ends the loop cleanly (remove state, `exit 0`): (1) no scratchpad → stop; (2) corrupt frontmatter → stop; (3) `done` flag present → stop (promise fulfilled); (4) `iteration >= max_iterations > 0` → stop (cap); (5) budget halted → stop; else increment `iteration` in place and emit `{"followup_message": "<header>\n\n<goal body>"}` to re-feed. |
+| `stop` → `loop_stop.py` | when the turn ends | guard clauses, each ends the loop cleanly (remove state, `exit 0`): (1) no scratchpad → stop; (2) corrupt frontmatter → stop; (3) `done` flag present → stop (promise fulfilled); (4) `iteration >= max_iterations > 0` → write `HANDOFF.md`, then stop (cap); (5) budget halted → write `HANDOFF.md` (frozen goal + AC status + last attempts) for a different agent to resume, then stop; else increment `iteration` in place and emit `{"followup_message": "<header>\n\n<goal body>"}` to re-feed. |
 
 Detection (`capture`) and termination (`stop`) are split on purpose — neither parses the
 other's inline state. Iteration carries forward through git history + the working tree, not

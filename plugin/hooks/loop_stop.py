@@ -11,17 +11,26 @@ hook must never trap the agent in an endless loop. The real guards are the
 
 State (single source of truth): .orchestrator/loop/scratchpad.md  (+ sibling `done` flag)
 Reads stdin JSON from the host (Claude: {transcript_path,...}; Cursor: {text,...}).
+
+Cross-agent handoff: an INCOMPLETE stop (budget halted, iteration cap, manual STOP
+signal) writes `.orchestrator/loop/HANDOFF.md` before clearing the scratchpad, so a
+different agent/runtime picking up this repo cold — because the first one ran out of
+budget — can resume without re-deriving the goal, the verified acceptance criteria, or
+the dead-end attempts. A successful (promise-fulfilled) stop needs no handoff.
 """
 import json
 import os
 import re
 import sys
+import time
 
 LOOP_DIR = os.path.join(".orchestrator", "loop")
 SCRATCHPAD = os.path.join(LOOP_DIR, "scratchpad.md")
 DONE_FLAG = os.path.join(LOOP_DIR, "done")
 LAST_RESP = os.path.join(LOOP_DIR, "last_response.txt")
 ANCHOR = os.path.join(LOOP_DIR, "anchor.json")
+JOURNAL = os.path.join(LOOP_DIR, "journal.jsonl")
+HANDOFF = os.path.join(LOOP_DIR, "HANDOFF.md")
 STOP_SIGNAL = os.path.join(".orchestrator", "STOP")
 BUDGET = os.path.join(".orchestrator", "loop-budget.json")
 GATE_LOCK = os.path.join(LOOP_DIR, "gate.lock")
@@ -122,31 +131,118 @@ def gate_running():
     try:
         if not os.path.exists(GATE_LOCK):
             return False
-        import time
         return (time.time() - os.path.getmtime(GATE_LOCK)) < GATE_TTL_SEC
     except Exception:
         return False
+
+
+def read_anchor():
+    """Return the parsed task anchor dict, or None if absent/corrupt. Fail-open."""
+    try:
+        with open(ANCHOR, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
 
 
 def anchor_pending():
     """Return the unverified acceptance-criteria ids from the task anchor, or [].
 
     The mechanical anti-drift gate: a `<promise>` must not end the loop while the frozen task anchor
-    still has criteria that are not `done`. Read the anchor JSON DIRECTLY (no dependency on
-    `scripts/task_anchor.py`, which the lean marketplace plugin does not ship — the hook must stay
-    self-contained). FAIL-OPEN: a missing / unreadable / empty anchor, or one with no criteria,
-    returns [] so the gate never blocks — a buggy anchor must never trap the loop, and the rejection
-    it does cause is still bounded by `max_iterations` + the budget. Only a cleanly-parsed anchor
-    with ≥1 criterion that is not `done` reports pending.
+    still has criteria that are not `done`. FAIL-OPEN: a missing / unreadable / empty anchor, or one
+    with no criteria, returns [] so the gate never blocks — a buggy anchor must never trap the loop.
+    """
+    data = read_anchor()
+    if not data:
+        return []
+    crit = data.get("criteria") or []
+    return [c.get("id") for c in crit
+            if isinstance(c, dict) and c.get("status") != "done"]
+
+
+def tail_journal(n=8):
+    """Last N attempt records from the journal, oldest first. [] on any read error."""
+    try:
+        with open(JOURNAL, encoding="utf-8") as f:
+            lines = [ln for ln in f if ln.strip()]
+        out = []
+        for ln in lines[-n:]:
+            try:
+                out.append(json.loads(ln))
+            except Exception:
+                continue
+        return out
+    except Exception:
+        return []
+
+
+def write_handoff(reason, meta=None, body=None):
+    """Write the cross-agent continuation artifact before an INCOMPLETE stop.
+
+    Aggregates the frozen task anchor (goal + acceptance criteria + evidence), the last journal
+    attempts (what was already tried, to avoid re-running a dead end), and the live scratchpad
+    iteration/promise — everything a fresh agent needs to resume cold, without this conversation.
+    Fail-open: any error here must never block the stop itself.
     """
     try:
-        with open(ANCHOR, encoding="utf-8") as f:
-            data = json.load(f)
-        crit = data.get("criteria") or []
-        return [c.get("id") for c in crit
-                if isinstance(c, dict) and c.get("status") != "done"]
+        anchor = read_anchor() or {}
+        criteria = anchor.get("criteria") or []
+        attempts = tail_journal()
+        lines = [
+            "# simplicio-loop handoff",
+            "",
+            "Stop reason: %s" % reason,
+            "Stopped at: %s" % time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        ]
+        if meta:
+            lines += [
+                "Iteration: %s / %s" % (meta.get("iteration", "?"), meta.get("max_iterations", "?")),
+                "Completion promise: %s" % (meta.get("completion_promise") or "(none set)"),
+            ]
+        if anchor.get("goal"):
+            lines += ["", "## Frozen goal", "", anchor["goal"]]
+        elif body:
+            lines += ["", "## Goal (from scratchpad, no anchor set)", "", body]
+        if criteria:
+            lines += ["", "## Acceptance criteria"]
+            for c in criteria:
+                if not isinstance(c, dict):
+                    continue
+                mark = "x" if c.get("status") == "done" else " "
+                ev = (" — %s" % c["evidence"]) if c.get("evidence") else ""
+                lines.append(
+                    "- [%s] %s (%s)%s"
+                    % (mark, c.get("text", c.get("id", "?")), c.get("status", "pending"), ev)
+                )
+        if attempts:
+            lines += ["", "## Last attempts (`scripts/loop_journal.py resume` for the full read)"]
+            for a in attempts:
+                lines.append(
+                    "- iter %s: %s -> %s (fp %s)%s"
+                    % (
+                        a.get("iteration", "?"),
+                        a.get("action", "?"),
+                        a.get("gate", "?"),
+                        (a.get("fingerprint") or "")[:12],
+                        (" — %s" % a["note"]) if a.get("note") else "",
+                    )
+                )
+        lines += [
+            "",
+            "## Resume",
+            "",
+            "1. `python3 scripts/task_anchor.py status` (or `gate --exit-code`) — verified vs open.",
+            "2. `python3 scripts/loop_journal.py resume` — dead-end actions to avoid.",
+            "3. `git log --oneline -10` / `git diff` — what already landed.",
+            "4. Re-arm the loop once the stop cause (budget/cap/manual) is resolved.",
+            "",
+        ]
+        tmp = HANDOFF + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        os.replace(tmp, HANDOFF)
     except Exception:
-        return []  # fail-open: anchor unreadable ≠ trap
+        pass  # fail-open: a broken handoff write must never block the stop
 
 
 def budget_halted():
@@ -177,8 +273,18 @@ def emit_refeed(followup):
 
 def main():
     try:
-        # Explicit STOP signal beats everything.
+        meta, body = None, None
+        if os.path.exists(SCRATCHPAD):
+            try:
+                with open(SCRATCHPAD, encoding="utf-8") as f:
+                    meta, body = parse_frontmatter(f.read())
+            except OSError:
+                meta, body = None, None
+
+        # Explicit STOP signal beats everything — but still hand off if there was live state.
         if os.path.exists(STOP_SIGNAL):
+            if meta is not None:
+                write_handoff("manual STOP signal", meta, body)
             cleanup_and_stop()
         # Waiting on a background gate (workflow / CI / long task)? Let the turn end WITHOUT
         # consuming an iteration or re-feeding — we are blocked on that gate, not idle. The gate's
@@ -188,9 +294,6 @@ def main():
         # (1) No active loop.
         if not os.path.exists(SCRATCHPAD):
             allow_stop()
-        with open(SCRATCHPAD, encoding="utf-8") as f:
-            content = f.read()
-        meta, body = parse_frontmatter(content)
         # (2) Corrupt state.
         if meta is None:
             cleanup_and_stop()
@@ -215,21 +318,26 @@ def main():
                 # in the task anchor — the mechanical anti-drift gate. Pending ACs ⇒ ignore the
                 # promise and keep looping (still bounded by max_iter), never a false "done".
                 if ((not evidence_required) or has_evidence) and not anchor_pending():
-                    cleanup_and_stop()  # (3) promise fulfilled → stop
+                    cleanup_and_stop()  # (3) promise fulfilled → stop, no handoff needed
                 # promise without evidence, or anchor still has open ACs → ignore, keep looping
         # (3') Cursor capture may have raised the flag.
         if os.path.exists(DONE_FLAG):
             cleanup_and_stop()
-        # (4) Iteration cap.
+        # (4) Iteration cap — incomplete stop, hand off.
         if max_iter > 0 and iteration >= max_iter:
+            write_handoff("max_iterations cap reached", meta, body)
             cleanup_and_stop()
-        # (5) Budget halted.
+        # (5) Budget halted — incomplete stop, hand off. This is the exact "ran out of tokens/$"
+        # case: a different agent must be able to pick this up cold.
         if budget_halted():
+            write_handoff("budget halted", meta, body)
             cleanup_and_stop()
         # (6) Continue: bump iteration in place, re-feed the goal body.
         nxt = iteration + 1
+        with open(SCRATCHPAD, encoding="utf-8") as f:
+            raw = f.read()
         new_content = re.sub(
-            r"^iteration:\s*\d+", "iteration: %d" % nxt, content, count=1, flags=re.M
+            r"^iteration:\s*\d+", "iteration: %d" % nxt, raw, count=1, flags=re.M
         )
         try:
             tmp = SCRATCHPAD + ".tmp"
