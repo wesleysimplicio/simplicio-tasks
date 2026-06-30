@@ -5,6 +5,17 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
 
 ## [Unreleased]
 
+## [3.18.1] — 2026-06-30
+
+### Fixed
+- `references/orchestration.md` Step 3c still said "TRIVIAL/SMALL skip adversarial review; only
+  MEDIUM+ pay it" — a leftover from before v3.17.0's 6-agent floor that directly contradicted
+  Step 3's new policy a few lines above (found by an independent audit). Now states the review
+  fan-out (roles 3-6) runs on every item regardless of tier; only Rubric C's heaviest sub-checks
+  stay tier/surface-scoped.
+- Deleted `.agents/skills/` — an untracked, gitignored local mirror that still carried the
+  pre-v3.17.0 fast-path/solo policy a week stale; nothing referenced or synced it.
+
 ## [3.18.0] — 2026-06-30
 
 ### Changed

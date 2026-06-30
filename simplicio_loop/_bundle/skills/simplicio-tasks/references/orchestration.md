@@ -155,10 +155,13 @@ conflict-serialization for newly-arrived same-file items.
 ## Step 3c — Speed model (velocity without sacrificing quality)
 1. Pipeline, not barrier (item A merges while B builds). 2. Shared compile cache (e.g. `sccache`).
 3. Verify once: each agent runs a scoped incremental check; the full suite runs EXACTLY ONCE on
-the merged result. 4. Front-load shared context (orient once, share the digest). 5. Tier
-verification: TRIVIAL/SMALL skip adversarial review; only MEDIUM+ pay it. 6. Pre-warm the build on
-clean main. 7. Time-box + quarantine stuck agents. 8. Prefetch re-discovery during the prior
-wave's review. Speed comes from removing redundant work, not skipping gates.
+the merged result. 4. Front-load shared context (orient once, share the digest). 5. Tier scope,
+not tier skip: the Step 3 6-role review fan-out (roles 3-6) runs on EVERY item regardless of
+tier — only Rubric C's heaviest sub-checks (web/flow evidence) stay scoped to MEDIUM+ or
+surface-touching diffs; a TRIVIAL item still gets the full review, just lighter individual
+checks within it. 6. Pre-warm the build on clean main. 7. Time-box + quarantine stuck agents.
+8. Prefetch re-discovery during the prior wave's review. Speed comes from removing redundant
+work, not skipping gates.
 
 ## Step 3d — Model routing (spend reasoning only where it pays)
 - **L0** Deterministic, ZERO LLM tokens: decided edits via `deterministic_edit`, repo view via
