@@ -4,17 +4,20 @@
 The repo doubles as a pip package (engine + proxy + token-monitor dashboard) AND a Claude
 marketplace plugin. A marketplace install copies the WHOLE plugin source to the user's cache, so the
 plugin must NOT carry the heavy pip-only assets. `plugin/` is therefore a SLIM mirror containing only
-what the plugin actually loads:
+what the plugin actually loads or transitively depends on at runtime:
 
   plugin/skills/   <- byte-identical copy of .claude/skills/  (the 6 skills)
   plugin/hooks/    <- ONLY the hooks wired by hooks.claude.json (+ orient_clamp, a runtime dep)
+  plugin/scripts/  <- helper scripts invoked by the shipped loop hook
+  plugin/tests/    <- minimal parity/self-run tests for the shipped loop behavior
 
 Excluded by design (pip-only, never wired into the plugin): the capture proxy (`engine/`), the
 token-monitor dashboard (`hooks/simplicio_dashboard.py`), the 24/7 watcher (`hooks/simplicio_watch.py`),
-the Cursor-only `loop_capture.py`/`hooks.json`, `scripts/`. Run this after editing skills or
-a wired hook; `scripts/claims_audit.py` (check 5) fails if `plugin/` drifts from source.
+the Cursor-only `loop_capture.py`/`hooks.json`, and every non-runtime helper under `scripts/` /
+`tests/`. Run this after editing skills or a shipped runtime file; `scripts/claims_audit.py`
+(check 5) fails if `plugin/` drifts from source.
 
-Usage:  python3 scripts/sync_plugin.py        # rewrite plugin/skills + plugin/hooks from source
+Usage:  python3 scripts/sync_plugin.py        # rewrite shipped plugin trees from source
         python3 scripts/sync_plugin.py --check # exit 1 if plugin/ is out of sync (no writes)
 """
 import os
@@ -28,12 +31,20 @@ SRC_SKILLS = os.path.join(REPO, ".claude", "skills")
 DST_SKILLS = os.path.join(REPO, "plugin", "skills")
 SRC_HOOKS = os.path.join(REPO, "hooks")
 DST_HOOKS = os.path.join(REPO, "plugin", "hooks")
+SRC_SCRIPTS = os.path.join(REPO, "scripts")
+DST_SCRIPTS = os.path.join(REPO, "plugin", "scripts")
+SRC_TESTS = os.path.join(REPO, "tests")
+DST_TESTS = os.path.join(REPO, "plugin", "tests")
 
 # The ONLY hook files the marketplace plugin ships: those wired in hooks.claude.json + their deps.
 # loop_stop/learn_stop (Stop) · action_gate/orient_rewrite (PreToolUse) · orient_clamp (orient_rewrite
 # shells out to it) · hooks.claude.json (the wiring) · README.md (lean doc).
 LEAN_HOOKS = ["loop_stop.py", "learn_stop.py", "action_gate.py", "orient_rewrite.py",
               "orient_clamp.py", "hooks.claude.json"]
+# Runtime helpers now transitively required by the shipped loop hook.
+LEAN_SCRIPTS = ["hierarchical_planner.py", "cross_agent_wiki.py"]
+# Minimal parity coverage for the shipped loop/runtime helpers.
+LEAN_TESTS = ["_selfrun.py", "test_loop_e2e.py", "test_cross_agent_wiki.py"]
 
 
 def _read(p):
@@ -65,8 +76,25 @@ def sync():
         src = os.path.join(SRC_HOOKS, name)
         if os.path.exists(src):
             shutil.copy2(src, os.path.join(DST_HOOKS, name))
-    print("synced plugin/: %d skill files, %d hook files" % (
-        len(_walk_rel(DST_SKILLS)), len(_walk_rel(DST_HOOKS))))
+    # scripts: only helpers the shipped hook calls directly
+    if os.path.isdir(DST_SCRIPTS):
+        shutil.rmtree(DST_SCRIPTS)
+    os.makedirs(DST_SCRIPTS, exist_ok=True)
+    for name in LEAN_SCRIPTS:
+        src = os.path.join(SRC_SCRIPTS, name)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(DST_SCRIPTS, name))
+    # tests: minimal shipped parity checks for the loop/runtime helpers
+    if os.path.isdir(DST_TESTS):
+        shutil.rmtree(DST_TESTS)
+    os.makedirs(DST_TESTS, exist_ok=True)
+    for name in LEAN_TESTS:
+        src = os.path.join(SRC_TESTS, name)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(DST_TESTS, name))
+    print("synced plugin/: %d skill files, %d hook files, %d script files, %d test files" % (
+        len(_walk_rel(DST_SKILLS)), len(_walk_rel(DST_HOOKS)),
+        len(_walk_rel(DST_SCRIPTS)), len(_walk_rel(DST_TESTS))))
 
 
 def check():
@@ -93,6 +121,26 @@ def check():
     for rel in sorted(want & have):
         if _read(os.path.join(SRC_HOOKS, rel)) != _read(os.path.join(DST_HOOKS, rel)):
             drift.append("plugin/hooks: differs %s" % rel)
+    # scripts: exactly the lean runtime helper set used by the shipped loop hook
+    have = set(_walk_rel(DST_SCRIPTS)) if os.path.isdir(DST_SCRIPTS) else set()
+    want = set(n for n in LEAN_SCRIPTS if os.path.exists(os.path.join(SRC_SCRIPTS, n)))
+    for rel in sorted(want - have):
+        drift.append("plugin/scripts: missing %s" % rel)
+    for rel in sorted(have - want):
+        drift.append("plugin/scripts: unexpected %s (lean plugin ships only the runtime helper set)" % rel)
+    for rel in sorted(want & have):
+        if _read(os.path.join(SRC_SCRIPTS, rel)) != _read(os.path.join(DST_SCRIPTS, rel)):
+            drift.append("plugin/scripts: differs %s" % rel)
+    # tests: keep the shipped plugin parity tests byte-identical to source
+    have = set(_walk_rel(DST_TESTS)) if os.path.isdir(DST_TESTS) else set()
+    want = set(n for n in LEAN_TESTS if os.path.exists(os.path.join(SRC_TESTS, n)))
+    for rel in sorted(want - have):
+        drift.append("plugin/tests: missing %s" % rel)
+    for rel in sorted(have - want):
+        drift.append("plugin/tests: unexpected %s (lean plugin ships only the minimal loop parity tests)" % rel)
+    for rel in sorted(want & have):
+        if _read(os.path.join(SRC_TESTS, rel)) != _read(os.path.join(DST_TESTS, rel)):
+            drift.append("plugin/tests: differs %s" % rel)
     return drift
 
 

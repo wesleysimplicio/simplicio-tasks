@@ -12,9 +12,11 @@ Five checks:
                                 the README badge agree on ONE number.
   3. cited-commands-run         Each doc-cited worker script is invokable: its `selftest` passes if
                                 it has one, else it `py_compile`s and prints usage cleanly.
-  4. bundle-parity              Every file under .claude/skills/ has a byte-identical copy under
-                                simplicio_loop/_bundle/skills/ (the shipped pip bundle ≡ source).
-  5. plugin-parity              The lean marketplace plugin tree mirrors the source files it ships.
+  4. bundle-parity              Every shipped file under `.claude/skills/`, `hooks/`, the bundled
+                                runtime helper `scripts/`, and bundled parity `tests/` is
+                                byte-identical under `simplicio_loop/_bundle/`.
+  5. plugin-parity              The lean marketplace plugin tree mirrors the source files it ships
+                                (skills + wired hooks + runtime helper scripts + parity tests).
 
 Usage:
     python3 scripts/claims_audit.py [--json] [--only 1,2,3,4]
@@ -53,6 +55,8 @@ SELFTEST_SCRIPTS = [
     "scripts/pr_evidence.py",
     "scripts/flow_audit.py",
     "scripts/impact_audit.py",
+    "scripts/cross_agent_wiki.py",
+    "scripts/hierarchical_planner.py",
     "hooks/action_gate.py",
 ]
 
@@ -106,7 +110,8 @@ def check_commands_run():
             continue
         r = subprocess.run([sys.executable, path, "selftest"],
                            capture_output=True, text=True, cwd=REPO)
-        if r.returncode != 0 or "FAIL" in r.stdout.upper().replace("PASS", ""):
+        bad_output = re.search(r"\bFAIL(?:ED)?\b|\[XX\]|\[ER\]", r.stdout.upper().replace("PASS", ""))
+        if r.returncode != 0 or bad_output:
             failures.append("%s selftest rc=%d" % (rel, r.returncode))
     # other cited scripts: must at least py_compile without crashing
     cited = set()
@@ -125,15 +130,27 @@ def check_commands_run():
 
 
 def check_bundle_parity():
-    # The pip bundle ships BOTH the skills and the hooks — both must mirror source byte-for-byte.
+    # The pip bundle ships the skills, hooks, runtime helper scripts, and shipped parity tests —
+    # all must mirror source byte-for-byte.
     pairs = [
         (os.path.join(REPO, ".claude", "skills"),
          os.path.join(REPO, "simplicio_loop", "_bundle", "skills")),
         (os.path.join(REPO, "hooks"),
          os.path.join(REPO, "simplicio_loop", "_bundle", "hooks")),
+        (os.path.join(REPO, "scripts"),
+         os.path.join(REPO, "simplicio_loop", "_bundle", "scripts"),
+         {"hierarchical_planner.py", "cross_agent_wiki.py"}),
+        (os.path.join(REPO, "tests"),
+         os.path.join(REPO, "simplicio_loop", "_bundle", "tests"),
+         {"_selfrun.py", "test_loop_e2e.py", "test_cross_agent_wiki.py"}),
     ]
     drift = []
-    for src_root, bun_root in pairs:
+    for pair in pairs:
+        if len(pair) == 2:
+            src_root, bun_root = pair
+            include = None
+        else:
+            src_root, bun_root, include = pair
         tag = os.path.basename(bun_root)
         if not os.path.isdir(bun_root):
             drift.append("bundle dir missing: _bundle/%s" % tag)
@@ -143,15 +160,17 @@ def check_bundle_parity():
             for n in names:
                 if n.endswith((".pyc", ".pyo")):
                     continue
+                rel = os.path.relpath(os.path.join(root, n), src_root)
+                if include is not None and rel not in include:
+                    continue
                 sp = os.path.join(root, n)
-                rel = os.path.relpath(sp, src_root)
                 bp = os.path.join(bun_root, rel)
                 if not os.path.exists(bp):
                     drift.append("%s: missing in bundle: %s" % (tag, rel))
                 elif _read(sp) != _read(bp):
                     drift.append("%s: differs: %s" % (tag, rel))
     ok = not drift
-    return ok, ("bundle ≡ source (skills + hooks)" if ok else "; ".join(drift))
+    return ok, ("bundle ≡ source (skills + hooks + runtime scripts + parity tests)" if ok else "; ".join(drift))
 
 
 def check_plugin_sync():
