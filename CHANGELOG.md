@@ -10,6 +10,28 @@ All notable changes to **simplicio-loop** are documented here. Format loosely fo
   selftests/smoke) on every push/PR to `main`. The gate already existed locally; nothing ran it
   automatically before this — flagged as the highest-confidence finding of an ecosystem audit.
 
+## [3.19.0] — 2026-07-01
+
+### Added
+- **Cross-agent wiki now surfaces blockers and next actions** (`scripts/cross_agent_wiki.py` +
+  `plugin`/`simplicio_loop/_bundle` mirrors). Watcher verification output was already rendered in
+  the wiki; this extends the same render path to the blocker list and the recommended next-action
+  set so a handoff reader sees what is stuck and what to try next, not just pass/fail status.
+- **End-to-end test of the loop driver** (`plugin/tests/test_loop_e2e.py` + `_selfrun.py`,
+  mirrored under `simplicio_loop/_bundle`) covering `hooks/loop_stop.py`'s evidence-gated stop,
+  anti-false-done (a bare `<promise>` is ignored without evidence), and anchor-gate exit paths.
+- `.claude/skills/simplicio-loop/SKILL.md` (+ `plugin` mirror) documents the spindle/latch
+  cross-agent handoff pattern.
+
+### Fixed
+- **Spindle/latch state-file mismatch between `handoff.py` and `loop_stop.py`.** `loop_stop.py`
+  had renamed `SPINDLE_STATE` to `spindle_state.json` with no compat shim, silently breaking the
+  cross-agent handoff/latch feature — `spindle_latched()` and `spindle_active()` failed open to
+  `False` when the expected file was missing. `scripts/handoff.py` now points `SPINDLE_STATE` at
+  `spindle_state.json`, keeps a `LEGACY_SPINDLE_STATE` constant for the old `spindle.json` name, and
+  `_read_spindle()` tries the new filename first before falling back to the legacy one — mirroring
+  the existing `DONE_FLAG`/`LEGACY_DONE_FLAG` backward-compat pattern in `hooks/loop_stop.py`.
+
 ## [3.18.1] — 2026-06-30
 
 ### Fixed
