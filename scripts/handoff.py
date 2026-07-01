@@ -20,7 +20,7 @@ up before the previous agent considers the handoff complete. If the next agent
 never confirms, the handoff remains LATCHED and the spindle is stalled — a
 detectable state (``handoff status`` shows `latch: true`).
 
-State file (single source of truth): `.orchestrator/loop/spindle.json`
+State file (single source of truth): `.orchestrator/loop/spindle_state.json`
 Spindle handoff dir: `.orchestrator/loop/handoffs/` (append-only, one JSONL per event)
 """
 
@@ -32,7 +32,8 @@ import sys
 import time
 
 LOOP_DIR = os.path.join(".orchestrator", "loop")
-SPINDLE_STATE = os.path.join(LOOP_DIR, "spindle.json")
+SPINDLE_STATE = os.path.join(LOOP_DIR, "spindle_state.json")
+LEGACY_SPINDLE_STATE = os.path.join(LOOP_DIR, "spindle.json")
 HANDOFF_FILE = os.path.join(LOOP_DIR, "HANDOFF.md")
 HANDOFFS_DIR = os.path.join(LOOP_DIR, "handoffs")
 
@@ -78,12 +79,19 @@ def _ensure_dirs():
 
 
 def _read_spindle():
-    """Return the spindle state dict, or None if absent/corrupt."""
-    try:
-        with open(SPINDLE_STATE, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
+    """Return the spindle state dict, or None if absent/corrupt.
+
+    Reads the current file name first; falls back to the pre-rename
+    `spindle.json` so an in-flight handoff written by an older version
+    is still picked up.
+    """
+    for path in (SPINDLE_STATE, LEGACY_SPINDLE_STATE):
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            continue
+    return None
 
 
 def _write_spindle(spindle: dict):

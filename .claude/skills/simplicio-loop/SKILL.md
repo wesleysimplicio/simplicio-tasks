@@ -235,6 +235,83 @@ genuinely stuck; `drain` is done when the queue stays empty across rounds. Don't
 and don't apply `converge`'s stall-escalation to a queue (a stuck item should be quarantined, not
 halt the whole drain). `simplicio-tasks` Step 3 routes fast-path/heavy-path on top of this.
 
+## HRM-style hierarchical planner (two-level reasoning loop)
+
+Inspired by the **Hierarchical Reasoning Model** (arXiv:2506.21734, JesseBrown1980/HRM),
+the loop now operates at TWO levels instead of one:
+
+| Level | Speed | Runs | Job |
+|-------|-------|------|-----|
+| **High-level planner** (`scripts/hierarchical_planner.py`) | Slow (every N turns or on stall) | `plan` subcommand called by `loop_stop.py` before each re-feed | Re-assess abstract strategy; MAY write a new **phase** (`.orchestrator/loop/phase.json`) that changes direction |
+| **Low-level executor** (the loop itself) | Fast (every turn) | The normal Ralph re-feed within the current phase | Execute one AC-scoped change, verify, record to journal — never change the phase |
+
+**Phase states** (ordered escalation):
+
+| Phase | When | Strategy | Tactical guard |
+|-------|------|----------|----------------|
+| `explore` | First stall, or fresh complex bug | Survey codebase, read logs — DO NOT mutate | No edits — only read/grep/log analysis |
+| `debug` | After explore, or known bug | Add instrumentation, narrow failure, prove root cause | Do not fix yet — isolate first |
+| `harden` | Working code that needs safety | Add tests, edge cases, error handling | Do not add features — only safety nets |
+| `refactor` | Code quality debt | Restructure without changing behavior | Zero behavior change — tests pass before AND after |
+| `implement` | Default / fresh goal | Write new code against frozen ACs | One AC at a time, verify each |
+| `escalate` | Deep stall (>K identical failures) | STOP mutations — gather context for human handoff | Zero mutations — only HANDOFF.md |
+
+The planner is **deterministic and model-free** — same rules apply regardless of
+LLM provider. State lives in `.orchestrator/loop/phase.json`. The loop runs in
+flat mode if the planner script is missing.
+
+**Usage:**
+```bash
+# Before deciding the next action each turn, read the current phase
+python3 scripts/hierarchical_planner.py status
+# → MEASURED|phase: debug — started at iter 3, strategy: "Add instrumentation..."
+
+# Force replan manually (normally automatic)
+python3 scripts/hierarchical_planner.py plan
+
+# Reset to flat mode
+python3 scripts/hierarchical_planner.py clear
+```
+
+## Cross-agent persistent wiki (`.orchestrator/wiki/`)
+
+Evolved from the one-shot `HANDOFF.md` pattern (inspired by JesseBrown1980/ai-memory).
+Every turn's key decisions, findings, and dead-ends are captured into a persistent
+markdown wiki at `.orchestrator/wiki/` — a per-project, cross-agent, zero-friction
+knowledge base that survives across agent vendors (Hermes → Claude Code → Codex).
+
+A fresh agent arriving in the repo reads the wiki and sees "where we left off"
+without needing the prior conversation transcript.
+
+**Structure:**
+```
+.orchestrator/wiki/
+  SUMMARY.md          — regenerated each turn; full index of all entries
+  journal/            — per-turn captures (YYYY-MM-DD_HH-MM-SS.md)
+  decisions/          — accepted ACs, rejected approaches, settled facts
+  artifacts/          — links to evidence files, PRs, run IDs
+```
+
+**Commands:**
+```bash
+python3 scripts/cross_agent_wiki.py capture    # capture this turn's state
+python3 scripts/cross_agent_wiki.py summary    # regenerate SUMMARY.md
+python3 scripts/cross_agent_wiki.py handoff    # write HANDOFF.md for next agent
+python3 scripts/cross_agent_wiki.py status     # show wiki stats
+```
+
+**How it works per turn:**
+1. After each iteration, `cross_agent_wiki.py capture` saves the turn: goal, phase,
+   journal stats, recent git log, working tree diff, last action + gate + fingerprint.
+2. `cross_agent_wiki.py summary` regenerates the index, showing all entries with
+   pass/fail counts, unique fingerprints, and distinct actions tried.
+3. On handoff (cap/budget/STOP), `cross_agent_wiki.py handoff` writes a structured
+   markdown with frozen goal, AC status, last 3 distinct actions (anti-oscillation),
+   and explicit resume instructions for the next agent.
+
+The wiki is plain markdown — `grep`-able by any agent, editable by any editor,
+backup-able with `rsync`. No vector DB, no `write_note` ceremony.
+
 ## Run-journal + stall detector (the loop's working memory)
 
 A re-feed loop with no memory of its own attempts has two failure modes the classic Ralph loop

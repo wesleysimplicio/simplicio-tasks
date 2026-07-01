@@ -27,7 +27,8 @@ import time
 
 LOOP_DIR = os.path.join(".orchestrator", "loop")
 SCRATCHPAD = os.path.join(LOOP_DIR, "scratchpad.md")
-DONE_FLAG = os.path.join(LOOP_DIR, "done")
+DONE_FLAG = os.path.join(LOOP_DIR, "done.flag")
+LEGACY_DONE_FLAG = os.path.join(LOOP_DIR, "done")
 LAST_RESP = os.path.join(LOOP_DIR, "last_response.txt")
 ANCHOR = os.path.join(LOOP_DIR, "anchor.json")
 JOURNAL = os.path.join(LOOP_DIR, "journal.jsonl")
@@ -37,7 +38,8 @@ BUDGET = os.path.join(".orchestrator", "loop-budget.json")
 GATE_LOCK = os.path.join(LOOP_DIR, "gate.lock")
 GATE_TTL_SEC = 1800  # 30 min — a stale lock must NEVER permanently trap the loop (fail-open)
 WATCHER_STATE = os.path.join(LOOP_DIR, "watcher_state.json")
-SPINDLE_STATE = os.path.join(LOOP_DIR, "spindle.json")
+SPINDLE_STATE = os.path.join(LOOP_DIR, "spindle_state.json")
+PHASE_FILE = os.path.join(LOOP_DIR, "phase.json")
 
 EVIDENCE_RE = re.compile(
     r"(https?://\S+/pull/\d+)"          # a PR URL
@@ -55,7 +57,7 @@ def allow_stop():
 
 
 def cleanup_and_stop():
-    for p in (SCRATCHPAD, DONE_FLAG, LAST_RESP, WATCHER_STATE):
+    for p in (SCRATCHPAD, DONE_FLAG, LEGACY_DONE_FLAG, LAST_RESP, WATCHER_STATE):
         try:
             if os.path.exists(p):
                 os.remove(p)
@@ -268,6 +270,7 @@ def write_handoff(reason, meta=None, body=None):
         with open(tmp, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
         os.replace(tmp, HANDOFF)
+        refresh_cross_agent_wiki(include_handoff=True)
     except Exception:
         pass  # fail-open: a broken handoff write must never block the stop
 
@@ -403,6 +406,57 @@ def spindle_active():
         return False
 
 
+def read_phase():
+    """Read the current hierarchical phase, if any. Fail-open."""
+    try:
+        if not os.path.exists(PHASE_FILE):
+            return None
+        with open(PHASE_FILE, encoding="utf-8") as f:
+            phase = json.load(f)
+        return phase if isinstance(phase, dict) else None
+    except Exception:
+        return None
+
+
+def _call_cross_agent_wiki(command):
+    """Capture/refresh the shared wiki used for cross-agent continuity. Fail-open."""
+    try:
+        repo_root = os.getcwd()
+        script = os.path.join(repo_root, "scripts", "cross_agent_wiki.py")
+        if not os.path.exists(script):
+            return
+        subprocess.run(
+            [sys.executable, script, command],
+            capture_output=True, timeout=15,
+            cwd=repo_root,
+        )
+    except Exception:
+        pass
+
+
+def refresh_cross_agent_wiki(include_handoff=False):
+    """Best-effort wiki maintenance at loop boundaries. Fail-open."""
+    _call_cross_agent_wiki("capture")
+    _call_cross_agent_wiki("summary")
+    if include_handoff:
+        _call_cross_agent_wiki("handoff")
+
+
+def phase_header_hint():
+    """Render a short phase hint for the next iteration header. Empty when flat."""
+    phase = read_phase()
+    if not phase:
+        return ""
+    bits = [" phase=%s" % phase.get("phase", "?")]
+    strategy = str(phase.get("strategy", "")).strip()
+    guard = str(phase.get("tactical_guard", "")).strip()
+    if strategy:
+        bits.append(" strategy=%s" % strategy[:120])
+    if guard:
+        bits.append(" guard=%s" % guard[:120])
+    return "".join(bits)
+
+
 def emit_refeed(followup):
     """Emit the re-feed in BOTH schemas; each runtime reads its own key."""
     out = {
@@ -459,6 +513,10 @@ def main():
         stdin = read_stdin_json()
         resp = last_assistant_text(stdin)
 
+        # HRM-style hierarchical planner: re-assess phase on stall or every N iterations.
+        # Runs BEFORE the promise gate so the phase context is available.
+        _call_hierarchical_planner()
+
         # Pre-promise: watcher-gate — independent verification before any promise is honored.
         # Per Asolaria N-Nest Corrective Gate: each agent PID has a watcher PID that
         # independently re-computes the truth. Gate: reported == watcher.recomputed_truth.
@@ -474,11 +532,12 @@ def main():
                 # the agent's result was independently re-executed and matched before the
                 # promise is accepted — corrective gate per Asolaria.
                 if ((not evidence_required) or has_evidence) and watcher_pass and not anchor_pending():
+                    refresh_cross_agent_wiki(include_handoff=False)
                     cleanup_and_stop()  # (3) promise fulfilled → stop, no handoff needed
                 # promise without evidence, or watcher disagrees, or anchor still has open ACs
                 # → ignore, keep looping
         # (3') Cursor capture may have raised the flag.
-        if os.path.exists(DONE_FLAG):
+        if os.path.exists(DONE_FLAG) or os.path.exists(LEGACY_DONE_FLAG):
             cleanup_and_stop()
         # (4) Iteration cap — incomplete stop, hand off.
         if max_iter > 0 and iteration >= max_iter:
@@ -490,14 +549,7 @@ def main():
             write_handoff("budget halted", meta, body)
             cleanup_and_stop()
         # (5b) Spindle handoff — latched handoff overrides re-feed.
-        # A latched spindle means agent A handed off to agent B and is waiting for
-        # B to confirm receipt. The loop must NOT re-feed the goal — the handoff
-        # target will pick up from here. Just stop cleanly. Fail-open: if the spindle
-        # state is unreadable, spindle_latched() returns False and we continue
-        # normally, which is safe (the latched agent will still have the state file
-        # on disk to resume from).
         if spindle_latched():
-            # Attempt to read the next_agent name for the handoff message; fail-open.
             next_agent = "?"
             try:
                 with open(SPINDLE_STATE, encoding="utf-8") as _f:
@@ -536,10 +588,37 @@ def main():
             if pending
             else ""
         )
-        header = "[simplicio-loop iteration %d.%s%s %s]" % (nxt, promise_hint, ac_hint, watcher_tag)
+        header = "[simplicio-loop iteration %d.%s%s%s %s]" % (
+            nxt, promise_hint, ac_hint, phase_header_hint(), watcher_tag
+        )
+        refresh_cross_agent_wiki(include_handoff=False)
         emit_refeed(header + "\n\n" + (body or ""))
     except Exception:
         allow_stop()  # fail-open, always
+
+
+def _call_hierarchical_planner():
+    """Run the HRM-style hierarchical planner if a scratchpad exists. Fail-open.
+
+    The planner reads the journal and current phase, then MAY write a new phase
+    (`.orchestrator/loop/phase.json`) on stall detection or every N iterations.
+    The phase context is consumed by the re-feed header or the loop's decision logic.
+    Fail-open: any error here must never trap the loop; the loop runs in flat mode
+    if the planner is missing or broken.
+    """
+    try:
+        if os.path.exists(SCRATCHPAD):
+            repo_root = os.getcwd()
+            script = os.path.join(repo_root, "scripts", "hierarchical_planner.py")
+            if not os.path.exists(script):
+                return
+            subprocess.run(
+                [sys.executable, script, "plan"],
+                capture_output=True, timeout=15,
+                cwd=repo_root,
+            )
+    except Exception:
+        pass  # fail-open
 
 
 if __name__ == "__main__":
